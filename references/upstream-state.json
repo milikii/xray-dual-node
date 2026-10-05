@@ -1,0 +1,25 @@
+{
+  "verified_at": null,
+  "checked_at": "2026-10-05",
+  "status": "phase0-in-progress",
+  "pinned_tag": null,
+  "candidate_tag": "v26.9.30",
+  "last_seen_release": "v26.9.30",
+  "candidate_commit": "b26a91de4f3294e26a0ad0a970b81a386a41f789",
+  "docs_commit": "f2b306415344b9996d7f31775a12e8d2bd6809c6",
+  "files_verified": {},
+  "poc_environment": "Linode Debian 13 amd64, real Cloudflare, existing DNS, no CF token",
+  "poc_passed_core_checks": ["E1", "E2", "E3", "E4", "E5", "E7", "E11"],
+  "poc_partial_checks": ["E0", "E1b", "E6", "E8", "E10"],
+  "poc_pending_checks": ["E9"],
+  "assets": {
+    "Xray-linux-64.zip": {
+      "sha256": "f851110beaff16e78d643f0ccfd9524b4a44dfd59bae3e34bb52bba378f7690e",
+      "verification": "downloaded; local sha256 matches GitHub release digest and .dgst"
+    },
+    "Xray-linux-arm64-v8a.zip": {
+      "sha256": "9886f077f9fd8e6713b84c377c1c7db4e53b9bfa8c276a5bd12561139522b473",
+      "verification": "GitHub release metadata only; not downloaded or executed"
+    }
+  }
+}

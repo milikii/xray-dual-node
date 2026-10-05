@@ -1,0 +1,13 @@
+# Private runtime material and test captures never belong in the skill.
+.local/
+*.pcap
+*.pcapng
+*.key
+*.pem
+*.tar.zst
+secrets/
+client/
+links.txt
+node-links*.txt
+.export.*
+__pycache__/
