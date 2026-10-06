@@ -1,74 +1,81 @@
 ---
 name: xray-dual-node
 description: >-
-  在 Debian/Ubuntu VPS 上验证和维护共用 443 的 Xray REALITY 与 Cloudflare XHTTP 双节点方案，
-  并将两条节点链接导出为私有文件。适用于此双节点方案的施工、PoC、排错和私密交付；
-  当前为 Phase 0 工具集，尚未提供生产一键部署。
+  为 Codex、Claude Code 提供 Xray 双节点的部署、验收、排错、升级回滚、卸载和上游维护流程。
+  适用于 Debian/Ubuntu VPS 上共用 443 的 VLESS REALITY 与 Cloudflare XHTTP 节点；
+  执行后把两条节点链接写入私有文件，避免认证材料进入执行者上下文。
 ---
 
-# Xray 双节点
+# Xray 双节点 Skill
 
-先读 [实施进度](docs/PLAN.md) 和 [版本状态](references/upstream-state.json)。
-当前可运行命令为 `scripts/xrayctl show-links`、`check-policy` 及 `tools/poc/` 实验工具。
-`deploy`、`verify`、升级/回滚/证书自动化仍未交付；不能将 PoC 成功报告为生产部署完成。
+由执行者读取环境、决定下一步并调用确定性辅助脚本。用户用自然语言提出任务；
+无需另一个常驻管理程序。复用会话已有选择，只读取当前任务对应的规程。
 
-## 本项目已确定的行为
+## 任务入口
 
-- A′ 默认候选：A 的 REALITY 直听 443，target 经回环 SNI 路由器分流。
-  CDN SNI **且** CF 来源才进 B；伪装 SNI 中继真站；其他 SNI 默认 blackhole。
-- **允许目标站协商 X25519。** 不因目标不支持 ML-KEM 阻止部署或换域名。
-  当前 core 的客户端仍须提供混合群，使用已测 `chrome`；这不是兼容任意旧客户端的开关。
-  结果区分“客户端提供 ML-KEM”与“实际协商 X25519”，不能标为后量子密钥交换成功。
-- **不使用 REALITY 中继带宽限速防刷。** 所有生成/迁移配置省略 `limitFallbackUpload`
-  和 `limitFallbackDownload`，不运行开启这些字段的实验。修改后执行 `check-policy`。
-  正确伪装 SNI 的未鉴权连接仍会产生中继带宽；按 [防刷边界](references/anti-abuse.md) 如实说明。
-- B 固定 `packet-up`，开启 VLESS Encryption，客户端 ECH；密钥由已校验 core 生成。
-  ML-DSA 与 ECH 的支持范围见实测，不能凭字段存在推断 GUI 客户端兼容。
-- 本次用户选择不用 CF token，使用已有 DNS。不得为完成实验自行索要或使用其他 CF 凭据。
+| 用户意图 | 读取/执行 |
+|---|---|
+| 新 VPS 部署、换机器部署 | [部署规程](references/deploy.md) |
+| 节点不可用、验收、服务/证书检查 | [验收与排错](references/verify-and-diagnose.md) |
+| 升级 core、回滚、备份恢复、轮换、卸载 | [生命周期](references/lifecycle.md) |
+| 跟进作者更新、更新 Skill、发版 | [维护规程](docs/MAINTENANCE.md) |
+| 导出/重新获取节点 | [私密交付](references/private-export.md)，运行 `scripts/show-links.sh` |
 
-## 节点内容不进入执行者上下文
+部署/升级前读 `versions.env` 和 [上游状态](references/upstream-state.json)。
+本版基线为 v26.9.30，核验范围不等于所有客户端/系统均已测试。
+资料超过 30 天或发现新 tag 时说明时效，继续用已测 pin，除非用户要求验证/升级新版。
+首次使用时简要告知用户正在使用本 Skill。
 
-节点 URI、UUID、REALITY 公钥/私钥、shortId、ML-DSA 材料、VLESS Encryption、随机路径、
-客户端/服务端配置、token 和证书私钥都属于私密材料，包括名称为 publicKey 的认证材料。
+## 输入与已确认选择
 
-1. 在 VPS 内由脚本生成、读取、校验和传递，凭据参数使用文件输入，禁止把内容插入命令行。
-   文件放仓库外，目录 700、文件 600；服务所需配置按原计划授予专用组的最小读取权限。
-2. 不使用工具 `cat`/`head`/`read_file`/`grep` 查看私密文件；不让 `jq` 把提取的秘密返回工具输出。
-   不预览、不上传为附件、不生成终端二维码、不把链接贴进回复或 PR。
-3. 禁用 `set -x`，不输出原始配置差异、命令异常、客户端日志或抓包。
-   校验程序只返回 PASS/FAIL、计数和公共能力信息；原始诊断留私有文件，不让 Agent 读回。
-   如需补诊断，写只输出固定检查项/布尔值的脚本，先用合成数据验证没有泄露。
-4. **交付只运行 `xrayctl show-links`。** 名字保留兼容，行为为文件导出；没有打印内容的参数。
-   默认 `links.txt` 恰好两行，A 在前、B 在后，同时生成两个完整 JSON 客户端文件。
-   不直接调用内部 `links.jq` 将真实输入输出到终端。
-5. 最终回复只给路径、权限和服务/兼容性状态。需要本地文件时用用户授权的 SCP/SFTP 传输，
-   不读取文件内容；用户在自己的终端或客户端打开。多用户每人导出独立文件，禁止静默选第一个用户。
+复用已有主机、域名、证书方式和授权。缺少必要输入时一次问清：VPS 访问方式、伪装域名、
+CF CDN 域名、证书方式；客户端版本可以边执行边收集。不重复要求已给出的确认。
+密码/token 使用私有文件或系统凭据通道，不写入仓库或命令参数。
 
-具体命令、权限和导出限制见 [私密交付](references/private-export.md)。
-这是减少进入模型上下文的措施，不是对拥有 root 权限的执行者建立操作系统隔离。
+- 默认 A′：REALITY 直听 443，target 指向回环 SNI router；B 为回环 XHTTP TLS。
+  CDN SNI **且** CF 来源匹配才进入 B；伪装 SNI 中继真站；未知 SNI blackhole。
+- A 为 Vision、chrome、encryption=none；B 为 packet-up、VLESS Encryption 的 ML-KEM
+  认证组和客户端 ECH。B 地址默认 CDN 域名。
+- 允许目标不支持 ML-KEM 时协商 **X25519**。本 core 客户端仍需提供混合群；旧指纹可能失败。
+  不把“提供混合群”或 ML-DSA 签名误报为最终后量子密钥交换。
+- **不用 REALITY 中继限速防刷**：省略 limitFallbackUpload/Download，不另设出口带宽限制
+  替代它。正确伪装 SNI 的未鉴权连接仍会消耗中继带宽。
+- ML-DSA 默认 on；目标 R13 证书条件不满足时用 off，并说明原因。
+- 本会话选择不用 CF token、沿用已有 DNS。其他用户未选择时按部署规程确认模式，
+  不把一次会话偏好误当所有环境的强制限制。
 
-## 执行顺序
+## 认证材料不进入执行者上下文
 
-复用会话中已提供的参数、选择和授权，只有必需信息缺失时再询问。
-使用已校验的候选/锁定版本，不能凭示例 tag 拼 latest URL。当前没有生产 pin。
+URI、UUID、REALITY 公钥/私钥、shortId、ML-DSA 材料、VLESS Encryption、随机路径、
+配置全文、token、私钥和原始诊断日志均为私密材料；REALITY publicKey 也不能公开。
 
-1. 查 [PoC 结果](references/poc-results.md)，仅执行仍需要的实验；未知字段查
-   [源码审计](references/source-audit.md)，不能只凭 `xray run -test` 接受未知字段判断支持。
-2. 目标检查失败不能跳过；但目标不支持 ML-KEM 按已接受的 X25519 协商处理。
-   证书/TLS/ALPN 的其他失败仍然失败，ML-DSA 需满足已测目标证书条件。
-3. 任何配置变更先运行 `check-policy` 和同版本 `xray run -test -format json`，
-   后者的全部输出重定向到私有日志；只在通过后重启。密钥和路径复用，不能为导出重新生成。
-4. 正式部署完成后必须先验收再导出；当前只可导出已留存的 PoC 配置，必须注明服务是否运行。
-   URI 参数已做源码核对，GUI 导入仍待 E9；需要时用户可用随附私有 JSON。
-5. [计划](docs/PLAN.md) 中未验收项目保留未完成状态。不要伪造证书续期、GUI 导入、
-   两平台自动触发或真实 CF 验证证据。
+1. 在 VPS 内生成/解析/校验，通过文件传递秘密，禁用 set -x。不要把秘密拼入命令参数，
+   不输出原始异常、配置 diff、抓包或日志。
+2. 不用 cat/head/grep/read_file 等工具读回私密文件；排错让脚本只返回固定 ID、布尔值、
+   退出码。新诊断先以合成数据验证无凭据回显。
+3. 输入/导出/备份在仓库外，目录 700、文件 600；运行配置和证书按需给服务组 640。
+   从配置提取的值留在脚本内处理。
+4. 只用 show-links.sh 或兼容入口 xrayctl show-links 交付：links.txt 恰好 A/B 两行，附
+   完整 JSON。只返回路径、权限、状态；不预览、不贴链接、不生成终端 QR、不上传附件。
+5. 用户自己用终端/SFTP 下载查看。这是降低意外泄露的工作流，不是对 root Agent 的系统隔离。
+
+## 执行不变量
+
+- 发现 `/etc/xray-skill` 就转诊断/生命周期，不调用生成器重新创建密钥。
+- 目标 FAIL 不正常部署；ML-KEM 不支持是允许的回退。用户明确要求忽略不合格目标时
+  记录例外和检查结果，不默认绕过。
+- core 使用固定 tag/hash；字段查该 tag 源码/文档。run -test 单独通过不能证明字段被识别。
+  不猜字段，不因测试失败删除鉴权、来源限制或 TLS 校验。
+- 改配置先 check-policy.sh，再 run -test -format json（输出写私有日志），通过才重启。
+  升级前保存旧二进制、配置、证书和服务单元，失败按规程回滚。
+- 交付可用节点前确认 active/enabled、无临时运行时限、A/B 实际代理成功。导出不等于部署成功。
+  清理仅停止本轮临时客户端，**保留用户节点服务运行**。
+- 未要求轮换就保留 UUID、密钥、路径；普通升级保持原链接有效。
+- 据实标 PASS/WARN/FAIL/未测试，GUI 导入和其他系统不能因源码兼容就标实测。
 
 ## 按需参考
 
-- [private-export.md](references/private-export.md)：文件交付与保密接口。
-- [anti-abuse.md](references/anti-abuse.md)：不使用 REALITY 带宽限速的防刷边界。
-- [poc-results.md](references/poc-results.md)：已验证行为和剩余 E 项。
-- [fallbacks-and-sni-routing.md](references/fallbacks-and-sni-routing.md)：原方案 A 的反例与 A′ 验证。
-- [source-audit.md](references/source-audit.md)：pin 源码、配置字段、官方平台路径。
-- [upstream-state.json](references/upstream-state.json)：版本、资产校验和核验日期。
-- [docs/PLAN.md](docs/PLAN.md)：任务顺序、接口修订、未交付功能。
+- [客户端边界](references/client-compat.md)、[CF 清单](references/cloudflare-checklist.md)。
+- [源码依据](references/source-audit.md)、[历史 PoC](references/poc-results.md)。
+- [SNI 分流](references/fallbacks-and-sni-routing.md)、[防刷边界](references/anti-abuse.md)。
+- [常驻修复记录](references/persistent-recovery.md)、[当前交付范围](docs/PLAN.md)。

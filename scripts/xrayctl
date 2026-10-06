@@ -5,8 +5,8 @@ root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 case ${1:---help} in
     --help|-h)
         printf 'Usage: xrayctl show-links|check-policy [options]\n'
-        printf 'Phase 0: private export and policy checks only; deploy is not implemented.\n' ;;
+        printf 'Compatibility entry point. Read SKILL.md for agent-led deployment and lifecycle workflows.\n' ;;
     show-links) shift; exec "$root/scripts/show-links.sh" "$@" ;;
     check-policy) shift; exec "$root/scripts/check-policy.sh" "$@" ;;
-    *) printf '[FAIL] command unavailable in this Phase 0 build; use --help\n' >&2; exit 2 ;;
+    *) printf '[FAIL] no such helper command; follow the corresponding SKILL.md workflow\n' >&2; exit 2 ;;
 esac

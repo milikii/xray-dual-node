@@ -1,3 +1,3 @@
 interface:
   display_name: "Xray 双节点"
-  short_description: "验证 REALITY 与 Cloudflare XHTTP 双节点并私密导出节点文件"
+  short_description: "供 AI 执行者部署、验收、维护 Xray 双节点并私密交付节点文件"

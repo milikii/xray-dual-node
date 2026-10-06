@@ -1,6 +1,6 @@
 # Phase 0 上游核对
 
-checked_at: 2026-10-05
+checked_at: 2026-10-06
 verified_against: Xray-core v26.9.30（源码/CLI，加核心线上 PoC；详见 poc-results）
 
 ## 不可变来源
@@ -56,7 +56,10 @@ verified_against: Xray-core v26.9.30（源码/CLI，加核心线上 PoC；详见
 - [Claude Code 官方 Skill 文档](https://code.claude.com/docs/en/skills)：用户级
   `~/.claude/skills`、项目级 `.claude/skills`，支持 `/skill-name`。
 - 本机 CLI：codex-cli 0.160.0、Claude Code 2.1.283。仅版本检查与文档阅读；
-  自动触发/显式调用尚未执行，E0 不标 PASS。
+  2026-10-06 通过 Codex app-server skills/list 和 Claude stream-json initialize 的 command list
+  实际发现本 Skill；未发送模型任务，未把元数据发现等同于完整自然语言任务测试。
+  官方技能页面同日重新抓取核对。Claude plugin validate 在本环境不递归验证普通/软链接技能
+  子目录，不能把其空 contents 成功当作加载证据；加载证据来自 initialize command list。
 
 v26.9.8 release 正文仅转向 v26.9.9，后者转向 v26.9.30；不能把原方案有关最低版本
 的论断说成已由 release note 证实。[v26.9.8 的 go.mod](https://github.com/XTLS/Xray-core/blob/v26.9.8/go.mod)

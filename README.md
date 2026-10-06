@@ -1,51 +1,70 @@
-# xray-dual-node
+# Xray 双节点 Skill
 
-面向 Claude Code / Codex 的 Xray 双节点部署 Skill，当前处于 **Phase 0 验证阶段**。
-已在真实 Linode VPS + Cloudflare 上跑通 A′ 两节点、ECH、鉴权反例和来源限制。
-尚无可用的 `xrayctl deploy`，没有发布生产 pin，客户端导入矩阵及证书自动化仍未验收。
+供 **Codex / Claude Code** 使用的技能，版本 **0.1.0**。AI 按需读取操作规程，
+完成部署、验收、排错、升级回滚、卸载和上游维护；辅助脚本处理下载校验、私密配置生成等确定性步骤。
 
-执行方案见 [docs/PLAN.md](docs/PLAN.md)，实测进度见
-[references/poc-results.md](references/poc-results.md)。后续 T1–T15 按方案在 T0 出口后实施。
+在一台 VPS 共用 443：A 为 VLESS＋REALITY＋Vision，B 为经 Cloudflare 的
+VLESS＋XHTTP packet-up＋TLS，启用 VLESS Encryption 和客户端 ECH。
+允许目标协商 X25519，不用 REALITY 中继限速。最终只交付私有节点文件，执行者只看到路径和状态。
 
-已按用户最新选择实现：目标不支持 ML-KEM 时允许协商 X25519；生成配置不使用 REALITY
-中继带宽限速；[SKILL.md](SKILL.md) 要求执行者不读取节点内容，只交付私有文件。
-注意：当前 core 的客户端仍需提供混合群，不能把回退解释为任意旧客户端都能连接。
+## 安装与调用
 
-已有 PoC 配置可私密导出（不会启动服务）：
-
-```bash
-scripts/xrayctl show-links \
-  --client-a /root/xray-poc/live/client-a.json \
-  --client-b /root/xray-poc/live/client-b.json \
-  --output-dir /root/xray-poc/export --xray /root/xray-poc/bin/xray
+```sh
+git clone https://github.com/milikii/xray-dual-node.git
+cd xray-dual-node
+scripts/install-skill.sh
 ```
 
-`links.txt` 恰好两行（A/B），另附两份完整客户端 JSON；目录 700、文件 600，
-终端只显示路径和状态。详情见 [私密交付](references/private-export.md)。
-产物由用户自行下载；AI 不预览、不回显链接或认证材料。真实 VPS 的临时服务目前已停止，
-导出成功不等于节点正在运行。GUI 客户端导入仍待实测。
+| 平台 | 默认安装位置 | 调用 |
+|---|---|---|
+| Codex | `~/.agents/skills/xray-dual-node` | `$xray-dual-node` |
+| Claude Code | `~/.claude/skills/xray-dual-node` | `/xray-dual-node` |
 
-当前可复现的本地检查：
+安装器将同一仓库软链接到两处。项目安装用 `--project /absolute/project`；冲突默认拒绝，
+`--force` 先备份旧内容。安装后开新会话让平台发现技能。自然语言也可以触发：
 
-```bash
-shellcheck tools/poc/local-routing.sh
+> 使用 xray-dual-node，在这台 Debian VPS 部署双节点。沿用我提供的 CF 域名，不用 CF token。
+> 完成后只告诉我节点文件路径，不显示内容。
+
+> 按 xray-dual-node 排查节点不可用，保留原密钥和链接。
+
+> 按 xray-dual-node 检查作者新 release，核对改动并更新技能，实测后再升级节点。
+
+入口为 [SKILL.md](SKILL.md)，任务编排由执行者完成，没有要求用户掌握的独立 deploy CLI。
+现存 `xrayctl` 只兼容私密导出和策略检查。
+
+## 实测边界
+
+core 固定 **v26.9.30**，哈希在 [versions.env](versions.env)。Debian 13 amd64＋真实 VPS/CF
+已测双节点、ECH、鉴权反例、来源限制、常驻服务、自签证书检查和私密导出。
+其他 Debian/Ubuntu 版本及 arm64 由执行者逐机验收，不扩大实测承诺。
+
+带脚本的默认路径是 A′、每节点单用户、A enc=none、B packet-up。B′、多用户和特殊参数由
+执行者核对源码后在副本中实现和验证，不宣称已有完整通用生成器。
+GUI 导入边界见 [client-compat.md](references/client-compat.md)。
+
+本次测试沿用 CF 橙云 DNS 和 **Full 模式可接受的自签源站证书**，未使用 token。
+自签证书不能用于 Full (Strict)。也支持传入公共 CA 证书，由执行者对接并验收原有续期设施。
+未伪称已实测 ACME/DNS-01。操作见 [部署规程](references/deploy.md)，记录见 [测试记录](docs/test-records)。
+
+## 私密文件与维护
+
+默认交付 `/etc/xray-skill/client/links.txt`（A/B 两行），附 `node-a.json`、`node-b.json`。
+目录 700、文件 600，用户自己下载；AI 不预览、不贴聊天/Issue。两份 JSON 默认本地端口相同，二选一启动。
+这种约束降低意外泄露，不能技术性隔离 root 权限的执行者。
+
+上游跟进由执行者按 [MAINTENANCE.md](docs/MAINTENANCE.md) 执行：查官方变更 → 核对源码/文档
+→ 更新技能 → 隔离及真实链路验证 → 更新 pin/知识库 → 提交发布。不会后台自动升级 VPS。
+[当前计划](docs/PLAN.md) 记录本次 Skill 定位，早期 PoC/工具平台方案留作历史。
+
+## 验证
+
+```sh
+tests/check-skill.sh
 tests/unit/private-export.sh
+tests/unit/helper-contracts.sh
 tools/poc/local-routing.sh --xray /absolute/path/to/verified/xray
 ```
 
-测试二进制要求为 `v26.9.30`，下载来源和 SHA-256 见
-[upstream-state.json](references/upstream-state.json)。脚本不下载或安装二进制；
-只监听回环高端口，使用临时证书和 xray 生成的密钥，结束时清理进程及文件。
-该脚本仅验证本地路由。真实 CF 实验另有 `prepare-live.sh`、`check-live-auth.sh`、
-`check-original-fallback.sh`、`check-live-modes.sh`，均在 `tools/poc/`，都有 `--help`。
-这些是 Phase 0 实验工具，不能当生产部署脚本使用；真实环境记录见上述 PoC 文档。
-
-本次依用户要求没有使用 CF token、没有修改 DNS/zone 设置。源站使用两天有效的临时
-自签证书，经现有 CF 配置回源成功；acme.sh、DNS-01、续期和 Full (Strict) 未验证。
-
-Skill 完成后预定安装路径：Claude Code 用户级 `~/.claude/skills/xray-dual-node`、
-项目级 `.claude/skills/xray-dual-node`；Codex 用户级 `~/.agents/skills/xray-dual-node`、
-项目级 `.agents/skills/xray-dual-node`。路径已核对
-[两家官方文档](references/source-audit.md#e0-官方文档核对)，实际加载测试尚未执行。
-
-不得向仓库加入真实部署域名、IP、UUID、密码、CF token、证书私钥或抓包文件。
+仓库 CI 只检查技能和辅助脚本，不含服务器凭据、不部署 VPS。
+不得提交真实节点配置、部署域名/IP、UUID、token、密钥、证书或抓包。

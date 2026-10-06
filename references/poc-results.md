@@ -4,6 +4,9 @@ checked_at: 2026-10-05
 verified_against: Xray-core v26.9.30（控制机、Linode Debian 13 amd64、真实 Cloudflare）
 phase0_exit: NOT_READY
 
+历史说明：本文件保留原实验设计的完成情况。2026-10-06 用户明确改为 Agent Skill 交付，
+当前范围见 [PLAN.md](../docs/PLAN.md)。新验证见当日发布记录；Skill 发布不覆盖本表中的未测项。
+
 ## 环境与版本
 
 本地控制机：Debian 13 amd64、OpenSSL 3.5.7、systemd。
