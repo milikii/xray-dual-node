@@ -5,6 +5,9 @@ from pathlib import Path
 import tempfile
 import re
 import unittest
+import os
+import shutil
+import subprocess
 
 spec = importlib.util.spec_from_file_location('website', Path(__file__).resolve().parents[2] / 'scripts/prepare-website.py')
 web = importlib.util.module_from_spec(spec)
@@ -12,6 +15,33 @@ spec.loader.exec_module(web)
 
 
 class WebsiteTests(unittest.TestCase):
+    def test_nginx_config_works_as_unprivileged_user(self):
+        nginx = shutil.which('nginx') or '/usr/sbin/nginx'
+        if not os.access(nginx, os.X_OK) or not shutil.which('openssl'):
+            self.skipTest('nginx and openssl required')
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp)
+            work.chmod(0o755)
+            runtime = work / 'run'
+            runtime.mkdir()
+            subprocess.run(['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+                '-subj', '/CN=cdn.example.com', '-days', '1', '-keyout', str(work / 'key'),
+                '-out', str(work / 'cert')], check=True, capture_output=True)
+            # Synthetic test key only; allow the isolated unprivileged nginx to read it.
+            (work / 'key').chmod(0o644)
+            server = {'inbounds': [{'tag': 'xhttp-in', 'listen': '127.0.0.1', 'port': 8002,
+                'streamSettings': {'xhttpSettings': {'host': 'cdn.example.com', 'path': '/fixture'}}}]}
+            config = work / 'nginx.conf'
+            config.write_text(web.nginx_config(server, str(work), str(work / 'cert'),
+                str(work / 'key'), str(runtime)))
+            options = {}
+            if os.geteuid() == 0:
+                os.chown(runtime, 65534, 65534)
+                options = {'user': 65534, 'group': 65534, 'extra_groups': []}
+            result = subprocess.run([nginx, '-t', '-q', '-c', str(config)],
+                capture_output=True, text=True, **options)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_all_themes_have_working_local_links_and_no_external_requests(self):
         with tempfile.TemporaryDirectory() as tmp:
             for theme in web.THEMES:

@@ -37,6 +37,10 @@ description: >-
 不因当前用户不是 root、PATH 缺少 /usr/sbin 或缺少外部测试机而索要另一台 VPS。
 若选定环境不符（如非 Debian/Ubuntu 或无法访问宿主机的容器），说明具体问题并澄清目标。
 
+主要面向全新 Debian 12/13 的 amd64/arm64 系统。安装技能只下载/链接文件，不安装 Python。
+创建节点时先按部署规程用 shell 入口 `scripts/prepare-host.sh` 自动准备系统依赖，
+之后才运行 Python/jq 脚本；统一使用 `python3`，不假定 `python` 命令存在。
+
 复用已有主机、域名、有效公共证书及授权。缺少必要输入时只补问伪装域名、CF CDN 域名；
 证书默认 Let’s Encrypt + 自动续签，不询问是否接受自签。客户端版本可以边执行边收集。
 节点所需公网地址先按部署规程自动识别，

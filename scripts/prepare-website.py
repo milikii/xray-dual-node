@@ -45,6 +45,9 @@ http {{
     server_tokens off;
     client_body_temp_path {runtime}/body;
     proxy_temp_path {runtime}/proxy;
+    fastcgi_temp_path {runtime}/fastcgi;
+    uwsgi_temp_path {runtime}/uwsgi;
+    scgi_temp_path {runtime}/scgi;
     server {{
         listen 127.0.0.1:{port} ssl http2 proxy_protocol;
         server_name {host};

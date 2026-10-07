@@ -16,6 +16,12 @@ XHTTP 必须使用公共 CA 证书，默认 Let’s Encrypt + Certbot 自动续�
 
 ## 安装与调用
 
+主要面向全新 Debian 12/13（amd64/arm64）；Ubuntu 22.04/24.04 保留兼容支持，实测范围见下文。
+安装技能只下载/链接文件，**不等于安装 Python3**。创建节点时，执行者先运行 shell 入口
+`scripts/prepare-host.sh`，通过 apt 自动安装缺失的 Python3、Certbot、Nginx 等依赖，再继续部署。
+仓库自带的 `scripts/install-skill.sh` 不依赖 Python；若全新系统缺少用于下载仓库的 git，
+先由执行者通过 apt 安装 git 和 ca-certificates，再执行下列安装命令。
+
 可以在要创建节点的 VPS 本机打开 Codex / Claude Code 并安装技能。
 部署目标未明确时，技能先询问“是否在当前机器部署？”；确认后直接开始本机检查和部署，
 选择其他机器时再收集远程连接信息。已经明确指定目标时不重复确认。
@@ -81,6 +87,7 @@ tests/unit/private-export.sh
 tests/unit/helper-contracts.sh
 python3 tests/unit/reality-asn.py
 python3 tests/unit/website.py
+python3 tests/unit/prepare-host.py
 python3 tests/unit/news-site.py
 python3 tests/unit/auth-results.py
 python3 tests/unit/certificates.py

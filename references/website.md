@@ -57,6 +57,7 @@ CF 来源限制仍由前面的 SNI router 执行。Nginx 不直接绑定公网 8
 ## 依赖与安装
 
 使用 Debian/Ubuntu 提供的 `/usr/sbin/nginx` 与 `/etc/nginx/mime.types`。
+新部署先运行 `scripts/prepare-host.sh`，自动准备 Nginx 等依赖并禁止安装时启动默认服务。
 先检查已有安装和服务。已有 Nginx 时复用二进制，不改它的配置或监听。
 需要新安装时使用发行版包；安装过程需阻止新默认站点自动占用 80/443，例如在包管理器支持的
 机制下临时禁止自动启动，并在退出时恢复原策略；不能覆盖原有 policy-rc.d。
@@ -66,6 +67,8 @@ CF 来源限制仍由前面的 SNI router 执行。Nginx 不直接绑定公网 8
 新部署的 prepare 默认生成网站和私有 nginx.conf，install-runtime 在写入服务前检查 Nginx
 依赖、8003 空闲和目录冲突。独立服务使用 xray-skill 用户、仅回环监听和只读系统目录。
 静态文件 644，目录 755；含私有路径的 nginx.conf 为 root:xray-skill 640。
+生成配置显式指定 body/proxy/fastcgi/uwsgi/scgi 临时目录，全部放入 systemd 创建的
+`/run/xray-skill-web`；不依赖发行版编译默认目录的存在或写权限，也不放宽系统目录权限。
 按 [证书规程](certificates.md) 安装 Certbot 部署钩子，续签后校验证书/配置，重启 Xray 并重载网站；
 失败恢复旧证书。必须通过包含部署钩子的续签演练。
 

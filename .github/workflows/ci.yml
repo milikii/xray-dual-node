@@ -19,6 +19,7 @@ jobs:
           tests/unit/private-export.sh
           python3 tests/unit/reality-asn.py
           python3 tests/unit/website.py
+          python3 tests/unit/prepare-host.py
           python3 tests/unit/news-site.py
           python3 tests/unit/auth-results.py
           python3 tests/unit/certificates.py

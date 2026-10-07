@@ -30,14 +30,19 @@ verified_against: core v26.9.30；Debian 13 amd64/真实 CF 记录见 docs/test-
 
 ## 2. 预检与目标
 
-缺依赖时在部署授权内安装，再运行只读检查：
+以全新 Debian 12/13（amd64/arm64）为主要部署目标；Ubuntu 22.04/24.04 保留兼容路径，
+实测范围仍按记录声明。确定目标后，先用 shell 准备依赖，再运行任何 Python/jq 辅助脚本。
+以下命令以目标机 root 执行，普通用户通过已有 sudo 执行，不要求预装 Python，也不调用 `python`：
 
 ```sh
-apt-get update
-apt-get install -y curl jq unzip openssl iproute2 ca-certificates zstd util-linux python3 certbot
+scripts/prepare-host.sh
 scripts/preflight.sh --json
 scripts/check-reality-dest.sh --strict --json --source-ip "$source_ip" example.com
 ```
+
+准备入口自动安装缺失的 python3、Certbot、Nginx 等发行版依赖；仅安装技能不会执行它。
+安装期间禁止包自动启动服务，退出时移除本轮临时策略；已有 policy-rc.d 原样保留，
+若它不禁止 Nginx 启动，先安排不抢占现有端口的安装方式再继续。APT 失败不继续生成节点。
 
 域名替换为用户提供的 REALITY 伪装站；`source_ip` 使用已确认的部署目标公网 IP，
 远程部署不可误用控制机 IP。REALITY 域名是要伪装的真实 HTTPS 站点，通常无需用户拥有；
