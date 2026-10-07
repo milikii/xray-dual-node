@@ -9,6 +9,10 @@ VLESS＋XHTTP packet-up＋TLS，启用 VLESS Encryption 和客户端 ECH。
 
 ## 安装与调用
 
+可以在要创建节点的 VPS 本机打开 Codex / Claude Code 并安装技能。
+部署目标未明确时，技能先询问“是否在当前机器部署？”；确认后直接开始本机检查和部署，
+选择其他机器时再收集远程连接信息。已经明确指定目标时不重复确认。
+
 ```sh
 git clone https://github.com/milikii/xray-dual-node.git
 cd xray-dual-node
