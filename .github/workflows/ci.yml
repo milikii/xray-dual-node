@@ -20,6 +20,7 @@ jobs:
           python3 tests/unit/reality-asn.py
           python3 tests/unit/website.py
           python3 tests/unit/news-site.py
+          python3 tests/unit/auth-results.py
       - name: Verify the fixed core and loopback routing
         run: |
           scripts/fetch-xray.sh --output-dir /tmp/xray-skill-ci-core

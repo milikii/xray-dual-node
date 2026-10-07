@@ -25,8 +25,17 @@ def main():
     args = parser.parse_args()
     xray = str(Path(args.xray).resolve())
     nginx = shutil.which('nginx')
-    if not nginx or not 1024 <= args.base_port < 65525:
-        raise RuntimeError('prerequisite')
+    if not nginx and os.access('/usr/sbin/nginx', os.X_OK):
+        nginx = '/usr/sbin/nginx'
+    if not nginx:
+        print('[FAIL] P01: Nginx executable missing; check package installation and /usr/sbin')
+        raise SystemExit(2)
+    if not 1024 <= args.base_port < 65525:
+        print('[FAIL] P02: base port must be between 1024 and 65524')
+        raise SystemExit(2)
+    if not os.access(xray, os.X_OK):
+        print('[FAIL] P03: verified Xray binary is not executable by the current user')
+        raise SystemExit(2)
     root = Path(__file__).resolve().parents[2]
     spec = importlib.util.spec_from_file_location('web', root / 'scripts/prepare-website.py')
     web = importlib.util.module_from_spec(spec)

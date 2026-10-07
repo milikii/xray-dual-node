@@ -77,6 +77,7 @@ tests/unit/helper-contracts.sh
 python3 tests/unit/reality-asn.py
 python3 tests/unit/website.py
 python3 tests/unit/news-site.py
+python3 tests/unit/auth-results.py
 tools/poc/local-routing.sh --xray /absolute/path/to/verified/xray
 python3 tools/poc/local-website.py --xray /absolute/path/to/verified/xray
 ```

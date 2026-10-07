@@ -68,9 +68,24 @@ if [[ $failed == false ]]; then
     if "$root/tools/poc/check-live-auth.sh" --xray /usr/local/bin/xray-skill-xray --work-dir "$work" > "$work/auth-result" 2>&1; then
         row V05-V09 PASS 'A/B same-core proxy requests and wrong-credential controls passed'
     else row V05-V09 FAIL 'A/B proxy or credential controls failed; private details withheld'; fi
+    for node in a b; do
+        if grep -q "^\[PASS\] node-$node-baseline expected=success " "$work/auth-result"; then
+            row "V05-$node" PASS 'authenticated baseline proxy request passed'
+        elif grep -q "^\[FAIL\] node-$node-baseline " "$work/auth-result"; then
+            row "V05-$node" FAIL 'authenticated baseline proxy request failed'
+        else row "V05-$node" WARN 'baseline result unavailable; not a pass'; fi
+    done
+    if grep -q '^\[FAIL\].* cf_origin_526=true$' "$work/auth-result"; then
+        row C04 FAIL 'client observed HTTP 526: check Cloudflare origin certificate validation and SSL mode'
+    fi
     cdn=$(jq -er '.inbounds[]|select(.tag=="xhttp-in")|.streamSettings.xhttpSettings.host' /etc/xray-skill/config.json)
     if [[ $website == true ]]; then website_snapshot=$(readlink -f /var/www/xray-skill/current); fi
     status=$(curl --noproxy '*' -sS --connect-timeout 5 --max-time 15 -o "$work/homepage" -w '%{http_code}' "https://$cdn/") || status=000
+    if [[ $status == 526 ]]; then
+        row C05 FAIL 'CDN returned 526: origin certificate rejected; verify effective Full (Strict), SAN, chain and expiry'
+    elif [[ $status == 525 ]]; then
+        row C05 FAIL 'CDN returned 525: Cloudflare-to-origin TLS handshake failed'
+    fi
     if [[ $website == true ]]; then
         if [[ $status == 200 ]] && cmp -s "$work/homepage" "$website_snapshot/index.html"; then
             row V14 PASS 'Cloudflare serves the installed static homepage'
