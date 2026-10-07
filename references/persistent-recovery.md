@@ -1,5 +1,8 @@
 # 已有 PoC 的常驻恢复
 
+> 历史记录：文中的自签续期已废弃，不可用于新部署或当前维护。公共证书和续签执行 [证书规程](certificates.md)。
+
+
 verified_against: Xray-core v26.9.30；Linode Debian 13；真实 CF；2026-10-06。
 
 ## 停服根因与修复

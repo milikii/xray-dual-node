@@ -16,6 +16,7 @@ description: >-
 | 用户意图 | 读取/执行 |
 |---|---|
 | 新 VPS 部署、换机器部署 | [部署规程](references/deploy.md) |
+| 公共证书、自动续签、自签迁移 | [证书规程](references/certificates.md) |
 | 节点不可用、验收、服务/证书检查 | [验收与排错](references/verify-and-diagnose.md) |
 | 升级 core、回滚、备份恢复、轮换、卸载 | [生命周期](references/lifecycle.md) |
 | 跟进作者更新、更新 Skill、发版 | [维护规程](docs/MAINTENANCE.md) |
@@ -36,11 +37,16 @@ description: >-
 不因当前用户不是 root、PATH 缺少 /usr/sbin 或缺少外部测试机而索要另一台 VPS。
 若选定环境不符（如非 Debian/Ubuntu 或无法访问宿主机的容器），说明具体问题并澄清目标。
 
-复用已有主机、域名、证书方式和授权。缺少必要输入时只补问伪装域名、CF CDN 域名、
-证书方式；客户端版本可以边执行边收集。节点所需公网地址先按部署规程自动识别，
+复用已有主机、域名、有效公共证书及授权。缺少必要输入时只补问伪装域名、CF CDN 域名；
+证书默认 Let’s Encrypt + 自动续签，不询问是否接受自签。客户端版本可以边执行边收集。
+节点所需公网地址先按部署规程自动识别，
 无法可靠确定时再询问。不重复要求已给出的确认。
 密码/token 使用私有文件或系统凭据通道，不写入仓库或命令参数。
 
+- XHTTP 必须使用公共 CA 证书，默认 Let’s Encrypt + Certbot 自动续签，CF Full (Strict)。
+  先复用或签发证书，再生成节点；不得生成自签、使用 Origin CA 代替公共 CA 或降低 TLS 校验。
+  按 [证书规程](references/certificates.md) 安装续签部署钩子，演练包含 `--run-deploy-hooks`；
+  确认新证书同步、Xray 重启、Nginx 重载后才报告完成。
 - 默认 A′：REALITY 直听 443，target 指向回环 SNI router；B 为回环 XHTTP TLS。
   CDN SNI **且** CF 来源匹配才进入 B；伪装 SNI 中继真站；未知 SNI blackhole。
 - A 为 Vision、chrome、encryption=none；B 为 packet-up、VLESS Encryption 的 ML-KEM
@@ -90,6 +96,7 @@ URI、UUID、REALITY 公钥/私钥、shortId、ML-DSA 材料、VLESS Encryption�
   升级前保存旧二进制、配置、证书和服务单元，失败按规程回滚。
 - 交付可用节点前确认 active/enabled、无临时运行时限、A/B 实际代理成功。导出不等于部署成功。
   A、B 分别报告结果；526、任何基线失败或测试未运行都不得算作通过。
+  公共证书校验、Certbot 定时器、续签部署钩子与演练同样必须通过，不能只报证书已签发。
   清理仅停止本轮临时客户端，**保留用户节点服务运行**。
 - 未要求轮换就保留 UUID、密钥、路径；普通升级保持原链接有效。
 - 据实标 PASS/WARN/FAIL/未测试，GUI 导入和其他系统不能因源码兼容就标实测。

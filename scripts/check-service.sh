@@ -53,14 +53,14 @@ if jq -e '.website==true' /etc/xray-skill/recovery.json; then
         row W02 PASS 'AI feed update timer enabled/active with a separate user'
     else row W02 FAIL 'AI feed update timer or service user not configured'; fi
 fi
-if openssl x509 -in /etc/xray-skill/certs/origin/fullchain.pem -noout -checkend 1209600; then
-    row C02 PASS 'origin certificate has more than 14 days remaining'
-else row C02 FAIL 'origin certificate missing, invalid or near expiry'; fi
-if jq -e '.certificate_mode=="self-signed"' /etc/xray-skill/recovery.json; then
-    if systemctl is-enabled --quiet xray-skill-selfsigned.timer && systemctl is-active --quiet xray-skill-selfsigned.timer; then
-        row C03 PASS 'self-signed renewal timer enabled/active'
-    else row C03 FAIL 'self-signed renewal timer missing or inactive'; fi
-else row C03 WARN 'provided certificate: agent must verify external CA renewal'; fi
+hostname=$(jq -er '.inbounds[]|select(.tag=="xhttp-in")|.streamSettings.xhttpSettings.host' /etc/xray-skill/config.json) || hostname=''
+if "$root/scripts/check-public-cert.sh" --cert /etc/xray-skill/certs/origin/fullchain.pem \
+    --key /etc/xray-skill/certs/origin/privkey.pem --hostname "$hostname"; then
+    row C02 PASS 'public chain, hostname, key pair and remaining validity verified'
+else row C02 FAIL 'public certificate verification failed; self-signed/Origin CA not accepted'; fi
+if "$root/scripts/check-certbot-renewal.sh"; then
+    row C03 PASS 'Certbot timer, deployed certificate and matching renewal hook rehearsal verified'
+else row C03 FAIL 'Certbot renewal setup or deploy-hook rehearsal missing/failed; run renewal checker'; fi
 if [[ $failed == false ]]; then
     cp /etc/xray-skill/config.json "$work/server.json"
     cp /etc/xray-skill/secrets/client-a.json /etc/xray-skill/secrets/client-b.json "$work/"

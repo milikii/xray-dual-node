@@ -47,7 +47,11 @@ Agent 应先在隔离测试端口或测试 VPS 演练这次升级/回滚，不�
 网站模式恢复时同时恢复静态站、current 相对链接、资讯缓存与定时器、Nginx 配置和服务，
 先检查配置，再恢复原服务状态；备份/恢复前停止更新定时器和正在运行的资讯任务，完成后恢复原状态。
 普通升级/重启不重新生成页面，换主题只替换静态文件；给旧节点加站按 [网站规程](website.md) 迁移。
-provided 证书续期部署 hook 必须验证并重载 `xray-skill-web.service`，同时使 Xray 使用新证书。
+公共证书续签/迁移按 [证书规程](certificates.md)：hook 校验后重启 Xray、重载网站并支持失败恢复。
+备份还需保护 `/etc/letsencrypt` 的账号/lineage/renewal 配置与本实例部署 hook；这些包含私钥，
+不得读回模型。HTTP-01 还要备份 webroot、响应器配置/单元或既有网站的 challenge location，
+DNS-01 还要备份私有凭据。共享 Certbot 配置只能按实例恢复，不能覆盖其他站点。
+恢复后检查稳定 lineage 路径、重新安装 hook 并运行包含 hooks 的 dry-run。
 
 ## 增删用户与轮换
 
@@ -67,6 +71,10 @@ Agent 在私有配置副本内用固定 core 生成新 UUID，保留原 clients�
 
 确认用户要卸载的是本 Skill 实例；先备份。停用 xray-skill.service 和 xray-skill-selfsigned.timer，
 若启用了网站，也停用并删除 `xray-skill-web.service`；删除本 Skill 的 systemd 单元并 daemon-reload，
+移除本实例 `/etc/letsencrypt/renewal-hooks/deploy/xray-skill.sh`；不停止共享 `certbot.timer`，
+不删除其他站点的证书或 hooks。独立 `xray-skill-acme.service` 若只服务本实例则停用/移除；
+复用的 webroot/challenge location 不得影响其他站点。证书/续签项默认保留，只有明确清除时
+使用 Certbot 对指定 cert-name 删除，先确认没有其他服务引用。
 资讯站还需停用 `xray-skill-news.timer`、停止 `xray-skill-news.service` 并删除这两个单元；
 删除本 Skill 的二进制/软链接和运行用户。不要停用其他站点的 nginx.service 或卸载共享 Nginx。
 如果先前设置了独立 nft 表，只删除该表；不清空全机防火墙，不卸载共享依赖或删除其他代理服务。

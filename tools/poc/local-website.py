@@ -250,10 +250,19 @@ def main():
             mock_curl = mock_bin / 'curl'
             mock_curl.write_text('#!/bin/sh\ncase "$*" in\n*ips-v4*) printf "1.1.1.0/24\\n8.8.8.0/24\\n9.9.9.0/24\\n11.0.0.0/8\\n12.0.0.0/8\\n13.0.0.0/8\\n14.0.0.0/8\\n15.0.0.0/8\\n16.0.0.0/8\\n17.0.0.0/8\\n18.0.0.0/8\\n";;\n*ips-v6*) printf "2001:db8::/32\\n";;\n*) exit 1;;\nesac\n')
             mock_curl.chmod(0o700)
+            fixture_spec = importlib.util.spec_from_file_location('cert_fixture', root / 'tests/lib/cert_fixture.py')
+            fixture = importlib.util.module_from_spec(fixture_spec)
+            fixture_spec.loader.exec_module(fixture)
+            prep_certs = work / 'prep-certs'
+            prep_ca = fixture.certificates(prep_certs)
+            prep_scripts = fixture.prepare_copy(root, work / 'prep-source', prep_ca)
+            certificate_args = ['--origin-cert', str(prep_certs / 'valid-fullchain.pem'),
+                                '--origin-key', str(prep_certs / 'valid.key')]
             prepared = work / 'prepared'
             environment = dict(os.environ, PATH=str(mock_bin) + os.pathsep + os.environ['PATH'])
-            run([str(root / 'scripts/prepare-node-files.sh'), '--xray', xray, '--work-dir', str(prepared),
-                 '--dest', 'example.com', '--cdn', 'cdn.example.com', '--address', '203.0.113.10', '--mldsa', 'off', '--website-fetch', 'off'], env=environment)
+            run([str(prep_scripts / 'prepare-node-files.sh'), '--xray', xray, '--work-dir', str(prepared),
+                 '--dest', 'example.com', '--cdn', 'cdn.example.com', '--address', '203.0.113.10', '--mldsa', 'off',
+                 '--website-fetch', 'off', *certificate_args], env=environment)
             rendered = json.loads((prepared / 'server.json').read_text())
             target = next(item for item in rendered['outbounds'] if item['tag'] == 'to-node-b')
             backend_config = next(item for item in rendered['inbounds'] if item['tag'] == 'xhttp-in')
@@ -267,9 +276,9 @@ def main():
                 assert value not in content
             print('[PASS] actual node preparation produces website topology without public credentials', flush=True)
             legacy = work / 'without-website'
-            run([str(root / 'scripts/prepare-node-files.sh'), '--xray', xray, '--work-dir', str(legacy),
+            run([str(prep_scripts / 'prepare-node-files.sh'), '--xray', xray, '--work-dir', str(legacy),
                  '--dest', 'example.com', '--cdn', 'cdn.example.com', '--address', '203.0.113.10',
-                 '--mldsa', 'off', '--website', 'off'], env=environment)
+                 '--mldsa', 'off', '--website', 'off', *certificate_args], env=environment)
             legacy_config = json.loads((legacy / 'server.json').read_text())
             legacy_target = next(item for item in legacy_config['outbounds'] if item['tag'] == 'to-node-b')
             assert legacy_target['settings']['redirect'] == '127.0.0.1:8002'

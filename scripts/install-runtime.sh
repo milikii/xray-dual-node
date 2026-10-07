@@ -6,27 +6,28 @@ umask 077
 usage() {
     cat <<'EOF'
 Usage: install-runtime.sh --work-dir PREPARED_DIR --xray-dir VERIFIED_BIN_DIR
+                          --certbot-lineage /etc/letsencrypt/live/CERT_NAME
 Installs agent-prepared v26.9.30 files as xray-skill.service with boot startup.
 Requires root, free 443 (or the matching xray-poc.service), and no existing xray-skill runtime.
-Preserves credentials and existing CF DNS. Self-signed mode gets a daily renewal check;
-provided certificates require an agent-arranged renewal process. No ACME/DNS API calls.
+Requires a public certificate and an existing Certbot lineage; installs the renewal deploy hook.
+Preserves credentials and existing CF DNS. No ACME issuance/DNS API calls.
 Stops a matching transient unit only after the new configuration validates.
 Does not export links or claim client connectivity; run end-to-end tests afterward.
 Prepared websites require /usr/sbin/nginx; use the isolated xray-skill-web.service, not nginx.service.
 EOF
 }
-work='' bin_dir=''
+work='' bin_dir='' lineage=''
 while (($#)); do
     case "$1" in
         --help|-h) usage; exit 0 ;;
-        --work-dir|--xray-dir)
+        --work-dir|--xray-dir|--certbot-lineage)
             (($# >= 2)) || exit 2
-            case "$1" in --work-dir) work=$2 ;; --xray-dir) bin_dir=$2 ;; esac
+            case "$1" in --work-dir) work=$2 ;; --xray-dir) bin_dir=$2 ;; --certbot-lineage) lineage=$2 ;; esac
             shift 2 ;;
         *) usage >&2; exit 2 ;;
     esac
 done
-[[ $EUID == 0 && $work = /* && $bin_dir = /* ]] || { usage >&2; exit 2; }
+[[ $EUID == 0 && $work = /* && $bin_dir = /* && $lineage =~ ^/etc/letsencrypt/live/[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || { usage >&2; exit 2; }
 exec 3>&1 4>&2
 exec 1>/dev/null 2>/dev/null
 success=false old_stopped=false old_active=false switched=false website=false
@@ -62,6 +63,14 @@ exec 9>/run/xray-skill.lock
 flock -x 9
 [[ ! -e /etc/xray-skill && ! -e /etc/systemd/system/xray-skill.service ]]
 [[ $(stat -c '%u:%a' "$work") == '0:700' ]]
+# Reject missing renewal or untrusted certificates before creating runtime files/users.
+command -v certbot
+[[ -f /etc/letsencrypt/renewal/${lineage##*/}.conf ]]
+jq -e '.certificate_mode=="provided"' "$work/prepared.json"
+hostname=$(jq -er '.inbounds[]|select(.tag=="xhttp-in")|.streamSettings.xhttpSettings.host' "$work/server.json")
+"$root/scripts/check-public-cert.sh" --cert "$work/tls.pem" --key "$work/tls.key" --hostname "$hostname"
+cmp -s "$work/tls.pem" "$lineage/fullchain.pem"
+cmp -s "$work/tls.key" "$lineage/privkey.pem"
 if [[ -f $work/prepared.json ]] && jq -e '.website==true' "$work/prepared.json"; then
     website=true
     [[ -x /usr/sbin/nginx && -f $work/website/nginx.conf && -d $work/website/site ]]
@@ -88,7 +97,7 @@ install -d -m 755 /opt/xray-skill/bin/xray-v26.9.30 /opt/xray-skill/src/scripts 
 install -m 755 "$bin_dir/xray" /opt/xray-skill/bin/xray-v26.9.30/xray
 install -m 644 "$bin_dir/geoip.dat" "$bin_dir/geosite.dat" /opt/xray-skill/bin/xray-v26.9.30/
 ln -s /opt/xray-skill/bin/xray-v26.9.30/xray /usr/local/bin/xray-skill-xray
-install -m 755 "$root/scripts/renew-selfsigned.sh" "$root/scripts/check-policy.sh" /opt/xray-skill/src/scripts/
+install -m 755 "$root/scripts/check-policy.sh" /opt/xray-skill/src/scripts/
 install -d -m 750 -o root -g xray-skill /etc/xray-skill /etc/xray-skill/certs /etc/xray-skill/certs/origin
 install -d -m 700 /etc/xray-skill/secrets
 install -d -m 750 -o xray-skill -g xray-skill /var/log/xray-skill
@@ -103,8 +112,7 @@ jq '
 ' "$work/server.json" > /etc/xray-skill/config.json
 chown root:xray-skill /etc/xray-skill/config.json
 chmod 640 /etc/xray-skill/config.json
-cert_mode=self-signed
-if [[ -f $work/prepared.json ]]; then cert_mode=$(jq -er '.certificate_mode|select(.=="self-signed" or .=="provided")' "$work/prepared.json"); fi
+cert_mode=provided
 jq -n --arg mode "$cert_mode" --argjson website "$website" \
     '{kind:"agent-deployment",tag:"v26.9.30",topology:"a-prime",certificate_mode:$mode,website:$website}' \
     > /etc/xray-skill/recovery.json
@@ -132,16 +140,8 @@ if [[ $website == true ]]; then
 fi
 "$root/scripts/check-policy.sh" /etc/xray-skill/config.json
 runuser -u xray-skill -- /usr/local/bin/xray-skill-xray run -test -format json -c /etc/xray-skill/config.json
-install -m 644 "$root/templates/systemd/xray-skill.service" \
-    "$root/templates/systemd/xray-skill-selfsigned.service" \
-    "$root/templates/systemd/xray-skill-selfsigned.timer" /etc/systemd/system/
+install -m 644 "$root/templates/systemd/xray-skill.service" /etc/systemd/system/
 systemctl daemon-reload
-# The renewal helper takes the same lock and validates with the service user.
-if [[ $cert_mode == self-signed ]]; then
-    flock -u 9
-    "$root/scripts/renew-selfsigned.sh" >&3 2>&4
-    flock -x 9
-fi
 switched=true
 if [[ $old_active == true ]]; then
     old_stopped=true
@@ -159,8 +159,9 @@ if [[ $website == true ]]; then
     systemctl is-active --quiet xray-skill-news.timer
     systemctl is-enabled --quiet xray-skill-news.timer
 fi
-if [[ $cert_mode == self-signed ]]; then systemctl enable --now xray-skill-selfsigned.timer; fi
+flock -u 9
+"$root/scripts/configure-certbot-renewal.sh" --lineage "$lineage" >&3 2>&4
 success=true
 printf '[PASS] ACTIVATE: persistent xray-skill.service running as dedicated user; boot startup enabled\n' >&3
-printf '[PASS] CERT: selected certificate mode installed; CF DNS unchanged\n' >&3
-printf '[INFO] VERIFY: end-to-end client checks still required; node credentials retained\n' >&3
+printf '[PASS] CERT: public certificate and automatic renewal installed; CF DNS unchanged\n' >&3
+printf '[INFO] VERIFY: renewal dry-run with hooks and end-to-end client checks still required\n' >&3

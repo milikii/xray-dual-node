@@ -1,0 +1,3 @@
+#!/bin/sh
+# Managed by xray-dual-node. Certbot supplies RENEWED_LINEAGE.
+exec /opt/xray-skill/src/scripts/deploy-certbot-cert.sh

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Xray-core 保持 v26.9.30。
+
+- XHTTP 改为必须使用公共 CA 证书，默认 Let’s Encrypt + Cloudflare Full (Strict)。
+  生成器不再自动生成自签证书，安装器要求提供 Certbot lineage；旧自签续期入口已废弃。
+- 增加 Certbot HTTP-01/DNS-01 规程、持久 HTTP 验证响应器模板、私密部署钩子与续签演练检查。
+  续签后校验证书/配置、重启 Xray、重载 Nginx，失败回滚并在恢复失败时保留私有备份。
+- 已有节点迁移保留 UUID、密钥和链接；仅更新仓库不会自动迁移在线服务。
+- 验收要求公共证书信任链、域名、私钥配对及有效期通过，且部署钩子真实执行；
+  仅启用定时器或 Certbot 返回 0 不算续签验收成功。
+- 隔离证书/回滚/HTTP-01、本地 A/B 代理和普通用户测试通过；真实 ACME 与 CF Strict
+  仍须目标机验收，详见 [测试记录](docs/test-records/2026-10-07-public-certificates.md)。
+
 ## [0.1.0] - 2026-10-06
 
 Xray-core: v26.9.30 (pre-release)

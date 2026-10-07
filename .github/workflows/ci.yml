@@ -21,6 +21,8 @@ jobs:
           python3 tests/unit/website.py
           python3 tests/unit/news-site.py
           python3 tests/unit/auth-results.py
+          python3 tests/unit/certificates.py
+          python3 tests/unit/acme-http.py
       - name: Verify the fixed core and loopback routing
         run: |
           scripts/fetch-xray.sh --output-dir /tmp/xray-skill-ci-core

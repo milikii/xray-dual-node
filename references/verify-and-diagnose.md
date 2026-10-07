@@ -12,9 +12,10 @@ scripts/check-service.sh --json
 ```
 
 该辅助脚本只输出结构化检查结果，临时启动同版本客户端，结束清理客户端并保留服务。
-它覆盖服务 active/enabled/运行时限、专用用户、配置/无中继限速、回环端口、证书到期/自签
-续期任务、A/B 同 core 代理和认证反例、CF 根路径、非 CF 伪造 CDN SNI。
-provided 证书续期给 WARN，需要执行者核对用户既有 ACME 任务。
+它覆盖服务 active/enabled/运行时限、专用用户、配置/无中继限速、回环端口、公共证书链/域名/有效期/密钥匹配、Certbot
+定时器/部署钩子/续签演练证据、A/B 同 core 代理和认证反例、CF 根路径、非 CF 伪造 CDN SNI。
+公共证书或续签设施未验证时标 FAIL。缺少演练证据时按 [证书规程](certificates.md)
+运行 `scripts/check-certbot-renewal.sh --dry-run`，普通 dry-run 不运行 deploy hooks，不能代替它。
 不把它称为原始计划 V01–V21 的全覆盖程序。
 
 执行者还要补充：
@@ -68,11 +69,11 @@ Nginx 8003 的证书；Nginx 到 Xray 8002 的 TLS 验证失败通常呈现 502�
 1. 实际 SSL/TLS 模式及域名级 Configuration Rules/Origin Rules 是否覆盖 zone 配置；
    无 CF API 权限时让用户确认面板状态，不声称已经读到了设置。
 2. 橙云记录的源站地址、回源 SNI 是否正确；实际服务呈现的证书是否覆盖 CDN 域名、未过期、链完整。
-3. 若为本 Skill 自签证书，它不能通过 Strict 校验。按用户已选证书策略修复：Strict 需要部署
-   可信的正确证书并安排续期；只有用户已接受 Full + 自签时才按该选择校正 CF 模式。
+3. 若为旧版 Skill 自签证书，按 [证书规程](certificates.md) 迁移到 Let’s Encrypt 公共证书，
+   接入 Certbot 自动续签和部署钩子。不得通过降低 CF 校验来解决 526。
    不自动降级校验、不改灰云、不打开 allowInsecure，也不把 REALITY 伪装站换掉来处理 526。
-4. CF Origin CA 与公共 CA 不是同一种信任来源。本版 provided 默认要求公共 CA；若沿用
-   Origin CA，需要另行配置 Nginx 后端的正确 CA 信任并验证，不假定系统 CA 包已信任它。
+4. CF Origin CA 与公共 CA 不是同一种信任来源，本版要求公共 CA；Origin CA 不满足要求，
+   同样迁移到公共证书。不能给系统随意添加私有信任根来绕过检查。
 5. 修复后重测 CF 首页、真实 B 基线和鉴权反例；本地隔离测试通过只能说明拓扑可行，不能覆盖实际 526。
 
 ## 普通用户的隔离测试

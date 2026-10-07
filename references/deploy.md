@@ -21,7 +21,7 @@ verified_against: core v26.9.30；Debian 13 amd64/真实 CF 记录见 docs/test-
 已有部署转诊断或生命周期，不调用生成器重新生成密钥。
 本机部署无需 SSH 连接信息，不要求用户提供 VPS IP、登录密码或密钥才能开始检查。
 若选定环境不支持部署，说明实际障碍并澄清目标，不自行切换机器。
-复用会话信息，只补问缺失的伪装域名、CF CDN 域名和证书方式；客户端版本可边执行边收集。
+复用会话信息，只补问缺失的伪装域名和 CF CDN 域名；客户端版本可边执行边收集。
 节点 `--address` 优先使用用户已指定的公网地址，否则结合本机网络地址与公网出口探测核对；
 多地址、NAT 或探测结果不一致而无法确定客户端可达地址时再询问。不要使用回环/私网地址，
 也不要把出口探测成功当作入站可达证明，最终仍须实际代理验收。
@@ -34,7 +34,7 @@ verified_against: core v26.9.30；Debian 13 amd64/真实 CF 记录见 docs/test-
 
 ```sh
 apt-get update
-apt-get install -y curl jq unzip openssl iproute2 ca-certificates zstd util-linux python3
+apt-get install -y curl jq unzip openssl iproute2 ca-certificates zstd util-linux python3 certbot
 scripts/preflight.sh --json
 scripts/check-reality-dest.sh --strict --json --source-ip "$source_ip" example.com
 ```
@@ -58,13 +58,11 @@ R10 通过 RIPEstat 对比源站与目标 DNS 解析 IP 的 ASN，显示具体 A
 不用 token 时保留用户已有 DNS；记录缺失/错误由用户面板修正，不用灰云绕过来源限制。
 不能把 DNS 解析得到的 CF 地址误当 VPS 地址。
 
-- **Full＋自签**：用户接受这种模式时用默认自签源站证书，开启每日检查/续签；不需要 token。
-  这不提供公共 CA 信任或 Strict 的源站身份校验。
-- **公共 CA 证书＋Full (Strict)**：提供目标机上的 fullchain/key，确认 SAN/完整链及有效期
-  超过 14 天。执行者验收既有续期任务安装到运行位置，并测试重载。
-- 用户要求新建 ACME/DNS-01 时，查当日 acme.sh 官方 tag/校验来源，用 VPS 私有凭据文件，
-  先 staging 再正式签发，然后使用 provided 模式。这一分支没有本仓库真实签发证据，必须
-  现场补验收；不能在缺少凭据时假装完成，也不擅自切换证书模式。
+必须按 [公共证书与自动续签](certificates.md) 先复用或申请 Let’s Encrypt 证书，再生成节点。
+CF 使用 **Full (Strict)**。默认用 Certbot HTTP-01 webroot，无需 CF token；验证路径保持可达，
+80 不可用才转自动 DNS-01。不得生成自签或以 Origin CA 代替公共 CA，也不降低 TLS 校验。
+首次签发、续签 deploy hook、定时器和包含 hook 的演练都是交付要求。
+既有节点只迁移证书/续签设施，禁止重新生成节点密钥。
 
 ## 4. 固定 core 与私有文件
 
@@ -75,12 +73,14 @@ R10 通过 RIPEstat 对比源站与目标 DNS 解析 IP 的 ASN，显示具体 A
 scripts/fetch-xray.sh --output-dir /root/xray-work/bin
 scripts/prepare-node-files.sh \
   --xray /root/xray-work/bin/xray --work-dir /root/xray-work/prepared \
-  --dest example.com --cdn cdn.example.com --address 203.0.113.10 --mldsa on
+  --dest example.com --cdn cdn.example.com --address 203.0.113.10 --mldsa on \
+  --origin-cert /etc/letsencrypt/live/cdn.example.com/fullchain.pem \
+  --origin-key /etc/letsencrypt/live/cdn.example.com/privkey.pem
 ```
 
 fetch 按 versions.env 固定 tag/hash，只提取官方 ZIP 三个明确文件；也可用已经校验的缓存。
 prepare 只生成私有文件并测试，不启动服务。输出目录必须新建，避免覆盖旧密钥。
-已有 CA 证书追加 `--origin-cert /private/fullchain.pem --origin-key /private/key.pem`。
+`--origin-cert`、`--origin-key` 必填，缺失或公共证书校验不通过时拒绝生成。
 读取真实文件的操作留在脚本内，Agent 不读回配置/密钥/原始日志。
 
 当前脚本覆盖 A′、单用户/单目标、A enc=none、B packet-up、ML-DSA on/off。
@@ -94,12 +94,14 @@ B′、多用户、A encryption 或特殊传输参数，由执行者在副本中
 ## 5. 安装常驻运行
 
 ```sh
-scripts/install-runtime.sh --work-dir /root/xray-work/prepared --xray-dir /root/xray-work/bin
+scripts/install-runtime.sh --work-dir /root/xray-work/prepared --xray-dir /root/xray-work/bin \
+  --certbot-lineage /etc/letsencrypt/live/cdn.example.com
+scripts/check-certbot-renewal.sh --dry-run
 ```
 
 首次安装创建专用用户，迁移配置/证书/客户端文件，先以服务用户运行 -test 再启用常驻服务。
-只接管空闲 443 或路径匹配的临时 PoC 服务。self-signed 模式带证书检查；provided 模式由
-执行者安排续期。失败保留私有输入，按诊断处理，不删除运行目录后盲目重跑。
+只接管空闲 443 或路径匹配的临时 PoC 服务。安装公共证书和 Certbot 部署钩子，启用 certbot.timer；
+随后必须通过包含 deploy hooks 的续签演练。失败保留私有输入，按诊断处理，不删除运行目录后盲目重跑。
 
 ## 6. 验收与交付
 

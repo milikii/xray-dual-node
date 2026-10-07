@@ -48,7 +48,7 @@ arXiv cs.AI/cs.LG。按类型选择相应来源，硬件资讯按 GPU/加速器/
 ```
 
 鉴权 REALITY 流量由最外层处理，不进入网站；上图把它列在入口分支便于阅读。
-Nginx 使用现有源站证书并验证到 Xray 的 TLS 连接，提供证书模式信任系统 CA，自签模式信任源站证书。
+Nginx 使用现有源站证书并验证到 Xray 的 TLS 连接，必须是公共 CA 证书，后端信任系统 CA。
 XHTTP 路径由脚本从私有配置读取，禁止 Agent 读回。关闭反代缓存、请求/响应缓冲与错误拦截，
 允许 packet-up 的 POST 和下载长连接。后端 8002 停止接收 PROXY 头，保留 TLS 和 VLESS 鉴权。
 CF 来源限制仍由前面的 SNI router 执行。Nginx 不直接绑定公网 80/443。
@@ -66,13 +66,14 @@ CF 来源限制仍由前面的 SNI router 执行。Nginx 不直接绑定公网 8
 新部署的 prepare 默认生成网站和私有 nginx.conf，install-runtime 在写入服务前检查 Nginx
 依赖、8003 空闲和目录冲突。独立服务使用 xray-skill 用户、仅回环监听和只读系统目录。
 静态文件 644，目录 755；含私有路径的 nginx.conf 为 root:xray-skill 640。
-自签续期同时校验并重载网站服务；provided 证书续期需要执行者对接同样的重载步骤。
+按 [证书规程](certificates.md) 安装 Certbot 部署钩子，续签后校验证书/配置，重启 Xray 并重载网站；
+失败恢复旧证书。必须通过包含部署钩子的续签演练。
 
 ## 既有节点加站与换主题
 
 不要重新运行密钥生成器。先按生命周期规程备份，保留原 UUID、密钥、域名和 XHTTP 路径。
 在私有目录用 `prepare-website.py --server-config ... --output-dir ...` 生成网站及代理配置，
-按现有 certificate_mode 传 `--certificate-mode self-signed|provided`。
+使用 `--certificate-mode provided`（默认）。旧自签节点先按证书规程迁移到公共 CA，不能继续自签。
 在配置副本中仅把 to-node-b.redirect 改到 `127.0.0.1:8003`，并把 xhttp-in 的
 sockopt.acceptProxyProtocol 改为 false；CF 规则、TLS、encryption 等保持原值。
 按新安装器的 releases/current 布局安装静态文件、资讯状态、私有 Nginx 配置及网站/资讯单元，通过 nginx -t、policy、Xray -test 后再进行切换。

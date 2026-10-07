@@ -5,6 +5,8 @@
 
 在一台 VPS 共用 443：A 为 VLESS＋REALITY＋Vision，B 为经 Cloudflare 的
 VLESS＋XHTTP packet-up＋TLS，启用 VLESS Encryption 和客户端 ECH。
+XHTTP 必须使用公共 CA 证书，默认 Let’s Encrypt + Certbot 自动续签与部署钩子，CF Full (Strict)。
+签发失败不回退自签；续签后自动校验、重启 Xray、重载 Nginx，失败恢复旧证书。
 允许目标协商 X25519，不用 REALITY 中继限速。最终只交付私有节点文件，执行者只看到路径和状态。
 新部署的 XHTTP 域名默认附带 AI 资讯静态站：随机选择 AI 新闻、硬件、论文或综合类型及样式，
 每三天从公开 RSS 更新标题、短摘要、日期和原文链接，失败保留旧页。普通访问展示网页，
@@ -43,7 +45,7 @@ scripts/install-skill.sh
 ## 实测边界
 
 core 固定 **v26.9.30**，哈希在 [versions.env](versions.env)。Debian 13 amd64＋真实 VPS/CF
-已测双节点、ECH、鉴权反例、来源限制、常驻服务、自签证书检查和私密导出。
+已测双节点、ECH、鉴权反例、来源限制、常驻服务和私密导出。
 其他 Debian/Ubuntu 版本及 arm64 由执行者逐机验收，不扩大实测承诺。
 新增网站模式已通过隔离环境的静态站、A/B 代理和来源反例测试；真实 CF/ECH 与 systemd 生命周期
 仍需现场验收，见 [网站测试记录](docs/test-records/2026-10-07-website.md)。
@@ -52,9 +54,10 @@ core 固定 **v26.9.30**，哈希在 [versions.env](versions.env)。Debian 13 am
 执行者核对源码后在副本中实现和验证，不宣称已有完整通用生成器。
 GUI 导入边界见 [client-compat.md](references/client-compat.md)。
 
-本次测试沿用 CF 橙云 DNS 和 **Full 模式可接受的自签源站证书**，未使用 token。
-自签证书不能用于 Full (Strict)。也支持传入公共 CA 证书，由执行者对接并验收原有续期设施。
-未伪称已实测 ACME/DNS-01。操作见 [部署规程](references/deploy.md)，记录见 [测试记录](docs/test-records)。
+旧 PoC 曾使用自签证书，只保留为历史记录；当前部署路径已禁止自签。
+公共证书验证、续签部署与失败回滚通过隔离测试；真实 ACME 签发/续签及 CF Full (Strict)
+仍须在目标机验收，不把离线模拟标成真实签发。见 [证书规程](references/certificates.md)
+和 [测试记录](docs/test-records)。
 
 ## 私密文件与维护
 
@@ -78,6 +81,8 @@ python3 tests/unit/reality-asn.py
 python3 tests/unit/website.py
 python3 tests/unit/news-site.py
 python3 tests/unit/auth-results.py
+python3 tests/unit/certificates.py
+python3 tests/unit/acme-http.py
 tools/poc/local-routing.sh --xray /absolute/path/to/verified/xray
 python3 tools/poc/local-website.py --xray /absolute/path/to/verified/xray
 ```

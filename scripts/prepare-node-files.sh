@@ -6,13 +6,13 @@ umask 077
 usage() {
     cat <<'EOF'
 Usage: prepare-node-files.sh --xray PATH --work-dir NEW_DIR --dest DOMAIN --cdn DOMAIN --address VPS_IP
-                             [--mldsa on|off] [--origin-cert FILE --origin-key FILE]
+                             [--mldsa on|off] --origin-cert FILE --origin-key FILE
                              [--website random|ai-news|ai-hardware|ai-research|ai-digest|off]
                              [--website-fetch on|off]
 Prepare A-prime server and two clients using checksum-verified Xray v26.9.30.
 The agent must first run check-reality-dest.sh; use --mldsa off if R13 is not established.
-Fetches public CF IP ranges. Uses a 365-day self-signed origin certificate by default;
-provide an existing matching certificate/key pair to use a public-CA certificate.
+Fetches public CF IP ranges. Requires a publicly trusted certificate/key pair.
+Obtain a Let's Encrypt certificate with automated renewal first; no self-signed fallback.
 No CF token, DNS changes, ACME issuance, process startup, or firewall changes.
 Server listens on 443 when explicitly started. Clients use loopback SOCKS 20808/20809.
 Private output must not be committed or printed. This helper only prepares files.
@@ -45,12 +45,14 @@ done
 [[ $mldsa == on || $mldsa == off ]] || exit 2
 case "$website" in random|ai-news|ai-hardware|ai-research|ai-digest|off) ;; *) exit 2 ;; esac
 [[ $website_fetch == on || $website_fetch == off ]] || exit 2
-[[ -z $origin_cert && -z $origin_key || -f $origin_cert && -f $origin_key ]] || exit 2
+[[ -f $origin_cert && -f $origin_key ]] || { printf "[FAIL] CERT: public CA certificate and key required; obtain Let's Encrypt first\n" >&2; exit 2; }
 for domain in "$dest" "$cdn"; do
     [[ $domain =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ && $domain = *.* && $domain != *..* ]] || exit 2
 done
 for dep in jq curl openssl awk python3; do command -v "$dep" >/dev/null || exit 3; done
 [[ $("$xray_bin" version) = 'Xray 26.9.30 '* ]] || exit 3
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+"$root/scripts/check-public-cert.sh" --cert "$origin_cert" --key "$origin_key" --hostname "$cdn"
 mkdir -p "$work"
 chmod 700 "$work"
 exec 3>&2 2>"$work/prepare-errors.log"
@@ -77,21 +79,9 @@ curl -fsS --max-time 20 https://www.cloudflare.com/ips-v6 > "$work/cf-v6"
 jq -n --rawfile v4 "$work/cf-v4" --rawfile v6 "$work/cf-v6" \
     '(($v4|split("\n"))+($v6|split("\n"))) | map(select(length>0))' > "$work/cf-ips.json"
 jq -e 'length>10 and all(.[]; test("^[0-9a-fA-F.:]+/[0-9]+$"))' "$work/cf-ips.json" >/dev/null
-cert_mode=self-signed
-if [[ -n $origin_cert ]]; then
-    cp -- "$origin_cert" "$work/tls.pem"
-    cp -- "$origin_key" "$work/tls.key"
-    cert_mode=provided
-else
-    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes \
-        -keyout "$work/tls.key" -out "$work/tls.pem" -days 365 -subj "/CN=$cdn" \
-        -addext "subjectAltName=DNS:$cdn" > "$work/cert.log" 2>&1
-fi
-openssl x509 -in "$work/tls.pem" -noout -checkhost "$cdn" > "$work/cert-check.log" 2>&1
-openssl x509 -in "$work/tls.pem" -noout -checkend 1209600 >> "$work/cert-check.log" 2>&1
-openssl x509 -in "$work/tls.pem" -pubkey -noout > "$work/cert-public"
-openssl pkey -in "$work/tls.key" -pubout > "$work/key-public" 2>> "$work/cert-check.log"
-cmp -s "$work/cert-public" "$work/key-public"
+cert_mode=provided
+cp -- "$origin_cert" "$work/tls.pem"
+cp -- "$origin_key" "$work/tls.key"
 jq -n --arg mode "$cert_mode" --arg mldsa "$mldsa" \
     '{certificate_mode:$mode,mldsa:$mldsa,tag:"v26.9.30",topology:"a-prime"}' > "$work/prepared.json"
 
@@ -156,7 +146,6 @@ jq -n --arg cdn "$cdn" --arg dir "$work" --rawfile uuid "$work/uuid-b" \
          tlsSettings:{serverName:$cdn,fingerprint:"chrome",alpn:["h2","http/1.1"],
            echConfigList:"cloudflare-ech.com+https://223.5.5.5/dns-query"}}}]}
     ' > "$work/client-b.json"
-root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 if [[ $website != off ]]; then
     python3 "$root/scripts/prepare-website.py" --server-config "$work/server.json" \
         --output-dir "$work/website" --theme "$website" --certificate-mode "$cert_mode" --fetch "$website_fetch"

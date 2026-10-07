@@ -9,6 +9,7 @@
 | [upstream-state.json](upstream-state.json) | 固定版本、资产哈希、实际核验范围 | checked_at/verified_at 2026-10-06；范围明确，不代表所有平台 |
 | [fallbacks-and-sni-routing.md](fallbacks-and-sni-routing.md) | E1 真实 CF 反例与 A′ 来源分流实验 | v26.9.30，Linode Debian 13 |
 | [private-export.md](private-export.md) | 文件交付、AI 不接触节点内容、URI 字段依据 | v26.9.30；v2rayN f5747bb 源码；合成导出测试 |
+| [certificates.md](certificates.md) | 公共 CA、Certbot、续签部署与自签迁移 | 2026-10-07；真实签发须现场验收 |
 | [persistent-recovery.md](persistent-recovery.md) | 停服根因、常驻恢复、自签证书续期与验收 | v26.9.30；2026-10-06 真实 VPS/CF |
 | [anti-abuse.md](anti-abuse.md) | 不用 REALITY 中继带宽限速的防刷边界 | v26.9.30；E1/E3/E8；用户最新选择 |
 | [deploy.md](deploy.md) | Agent 部署步骤及辅助脚本边界 | v26.9.30；生成/常驻流程实测 |

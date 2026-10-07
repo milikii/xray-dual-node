@@ -1,9 +1,0 @@
-[Unit]
-Description=Renew explicitly selected self-signed Xray origin certificate
-
-[Service]
-Type=oneshot
-UMask=0077
-ExecStart=/opt/xray-skill/src/scripts/renew-selfsigned.sh
-StandardOutput=journal
-StandardError=journal

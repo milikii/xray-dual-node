@@ -85,7 +85,7 @@ def main():
     parser.add_argument('--output-dir', required=True)
     parser.add_argument('--theme', choices=['random', *THEMES], default='random')
     parser.add_argument('--fetch', choices=['on', 'off'], default='on')
-    parser.add_argument('--certificate-mode', choices=['self-signed', 'provided'], default='self-signed')
+    parser.add_argument('--certificate-mode', choices=['provided'], default='provided')
     args = parser.parse_args()
     output = Path(args.output_dir)
     if output.exists():
@@ -95,7 +95,7 @@ def main():
     config = nginx_config(server, '/var/www/xray-skill/current',
                           '/etc/xray-skill/certs/origin/fullchain.pem',
                           '/etc/xray-skill/certs/origin/privkey.pem', '/run/xray-skill-web',
-                          trusted_ca='/etc/ssl/certs/ca-certificates.crt' if args.certificate_mode == 'provided' else None)
+                          trusted_ca='/etc/ssl/certs/ca-certificates.crt')
     output.mkdir(mode=0o700)
     metadata = news.make_config(args.theme)
     cache, items, count = news.collect(metadata) if args.fetch == 'on' else ({}, [], 0)
