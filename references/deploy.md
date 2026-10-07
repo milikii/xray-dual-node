@@ -115,6 +115,8 @@ scripts/show-links.sh --country "$country" --provider "$provider" \
 ```
 
 本机部署在记录的当前目录执行导出（可通过 Skill 绝对路径调用脚本），交付该目录下的
-`links.txt`（两行）、`node-a.json`、`node-b.json`，回复仅包含路径/权限/状态。
+`links.txt`（两行）、`node-a.json`、`node-b.json`，节点文件只报告路径/权限/状态。
+另外执行 `python3 scripts/show-cf-cache-rule.py`，把实际 XHTTP 域名的缓存绕过表达式放入
+最终回复的可复制代码块，并附 Cloudflare 设置动作与部署状态，见 [CF 清单](cloudflare-checklist.md#缓存绕过表达式与最终交付)。
 远程部署按 [私密交付](private-export.md) 将三份文件取回调用技能的当前目录。
 保留服务运行，只清理临时测试客户端。

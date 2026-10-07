@@ -80,7 +80,9 @@ URI、UUID、REALITY 公钥/私钥、shortId、ML-DSA 材料、VLESS Encryption�
    完整 JSON，具体位置与远程取回方式见 [私密交付](references/private-export.md)。
    按源站公网 IP 的国家代码和机房/运营商命名，如 `US-oracle-reality`、`US-oracle-xhttp+tls+cdn`；
    执行者核对归属后向导出器传入 `--country`、`--provider`，不用 CDN 边缘 IP 的位置。
-   只返回路径、权限、状态；不预览、不贴链接、不生成终端 QR、不上传附件。
+   节点文件只返回路径、权限、状态；不预览、不贴链接、不生成终端 QR、不上传附件。
+   另在交付回复中给出可复制的 Cloudflare 缓存绕过表达式及设置步骤，按 [CF 清单](references/cloudflare-checklist.md#缓存绕过表达式与最终交付)
+   用专用脚本输出实际 XHTTP 域名；该表达式允许展示，不能包含节点随机路径或认证材料。
 5. 用户自己用终端/SFTP 下载查看。这是降低意外泄露的工作流，不是对 root Agent 的系统隔离。
 
 ## 执行不变量

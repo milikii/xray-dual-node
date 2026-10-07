@@ -4,6 +4,8 @@
 
 Xray-core 保持 v26.9.30。
 
+- 部署交付增加实际 XHTTP 域名的可复制 Cloudflare 缓存绕过表达式及面板步骤；
+  专用脚本只输出经过验证的域名，不显示随机路径或节点凭据，不把生成表达式误报为已配置规则。
 - XHTTP 改为必须使用公共 CA 证书，默认 Let’s Encrypt + Cloudflare Full (Strict)。
   生成器不再自动生成自签证书，安装器要求提供 Certbot lineage；旧自签续期入口已废弃。
 - 增加 Certbot HTTP-01/DNS-01 规程、持久 HTTP 验证响应器模板、私密部署钩子与续签演练检查。

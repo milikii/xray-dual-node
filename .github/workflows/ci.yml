@@ -23,6 +23,7 @@ jobs:
           python3 tests/unit/auth-results.py
           python3 tests/unit/certificates.py
           python3 tests/unit/acme-http.py
+          python3 tests/unit/cf-cache-rule.py
       - name: Verify the fixed core and loopback routing
         run: |
           scripts/fetch-xray.sh --output-dir /tmp/xray-skill-ci-core

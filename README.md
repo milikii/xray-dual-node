@@ -7,7 +7,8 @@
 VLESS＋XHTTP packet-up＋TLS，启用 VLESS Encryption 和客户端 ECH。
 XHTTP 必须使用公共 CA 证书，默认 Let’s Encrypt + Certbot 自动续签与部署钩子，CF Full (Strict)。
 签发失败不回退自签；续签后自动校验、重启 Xray、重载 Nginx，失败恢复旧证书。
-允许目标协商 X25519，不用 REALITY 中继限速。最终只交付私有节点文件，执行者只看到路径和状态。
+允许目标协商 X25519，不用 REALITY 中继限速。节点内容只交付为私有文件，执行者只看到路径和状态。
+最终回复另附实际 XHTTP 域名的 Cloudflare 缓存绕过表达式及设置步骤，可直接复制，详见 [CF 清单](references/cloudflare-checklist.md#缓存绕过表达式与最终交付)。
 新部署的 XHTTP 域名默认附带 AI 资讯静态站：随机选择 AI 新闻、硬件、论文或综合类型及样式，
 每三天从公开 RSS 更新标题、短摘要、日期和原文链接，失败保留旧页。普通访问展示网页，
 节点路径经独立回环 Nginx 转发；详见 [网站规程](references/website.md)。
@@ -83,6 +84,7 @@ python3 tests/unit/news-site.py
 python3 tests/unit/auth-results.py
 python3 tests/unit/certificates.py
 python3 tests/unit/acme-http.py
+python3 tests/unit/cf-cache-rule.py
 tools/poc/local-routing.sh --xray /absolute/path/to/verified/xray
 python3 tools/poc/local-website.py --xray /absolute/path/to/verified/xray
 ```
