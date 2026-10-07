@@ -28,6 +28,8 @@ GUI 导入尚未验证的状态；stderr 只输出固定错误提示。禁止 Ag
 输入各含唯一的 `node-a` / `node-b` VLESS outbound、一个 vnext、一个用户；当前支持经
 PoC 验证的嵌套配置格式。复杂传输参数、未知配置字段和多用户不静默丢弃，直接拒绝。
 整体配置中的日志/路由/入站不导出，JSON 使用选中节点和新的回环 SOCKS/HTTP 入站。
+B 支持 auto 与旧 packet-up；新生成输入为 auto、ALPN=[h2]、无 Extra/ECH。
+URI 保留输入的 mode/ALPN，不在导出时变更已有节点参数；Extra 留空的原因见 [客户端规程](client-compat.md#v2rayng-的-modeextra-和-alpn)。
 
 产物：
 

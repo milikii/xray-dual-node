@@ -4,7 +4,8 @@
 完成部署、验收、排错、升级回滚、卸载和上游维护；辅助脚本处理下载校验、私密配置生成等确定性步骤。
 
 在一台 VPS 共用 443：A 为 VLESS＋REALITY＋Vision，B 为经 Cloudflare 的
-VLESS＋XHTTP packet-up＋TLS，启用 VLESS Encryption；客户端不配置 ECH，分享链接不含 `ech` 参数。
+VLESS＋XHTTP＋TLS，启用 VLESS Encryption；B 客户端默认 auto、ALPN=h2、Extra 留空，
+当前固定 core 在 TLS 下实际使用 packet-up。客户端不配置 ECH，分享链接不含 `ech` 参数。
 XHTTP 必须使用公共 CA 证书，默认 Let’s Encrypt + Certbot 自动续签与部署钩子，CF Full (Strict)。
 签发失败不回退自签；续签后自动校验、重启 Xray、重载 Nginx，失败恢复旧证书。
 允许目标协商 X25519，不用 REALITY 中继限速。节点内容只交付为私有文件，执行者只看到路径和状态。
@@ -51,7 +52,7 @@ core 固定 **v26.9.30**，哈希在 [versions.env](versions.env)。Debian 13 am
 新增网站模式已通过隔离环境的静态站、A/B 代理和来源反例测试；真实 CF、用户所在地网络与 systemd 生命周期
 仍需现场验收，见 [网站测试记录](docs/test-records/2026-10-07-website.md)。
 
-带脚本的默认路径是 A′、每节点单用户、A enc=none、B packet-up。B′、多用户和特殊参数由
+带脚本的默认路径是 A′、每节点单用户、A enc=none、B 客户端 auto/h2、服务端 packet-up。B′、多用户和特殊参数由
 执行者核对源码后在副本中实现和验证，不宣称已有完整通用生成器。
 GUI 导入边界见 [client-compat.md](references/client-compat.md)。
 

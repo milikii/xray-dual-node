@@ -19,8 +19,8 @@ jq -n '{outbounds:[{tag:"node-a",protocol:"vless",settings:{vnext:[{address:"203
     > "$work/input/a.json"
 jq -n '{outbounds:[{tag:"node-b",protocol:"vless",settings:{vnext:[{address:"2001:db8::10",port:443,
     users:[{id:"00000000-0000-0000-0000-000000000000",encryption:"mlkem768x25519plus.TEST+/=&?#%"}]}]},
-    streamSettings:{network:"xhttp",security:"tls",xhttpSettings:{host:"cdn.example.com",path:"/path?+&#%中文",mode:"packet-up"},
-    tlsSettings:{serverName:"cdn.example.com",fingerprint:"chrome",alpn:["h2","http/1.1"]}}}]}' > "$work/input/b.json"
+    streamSettings:{network:"xhttp",security:"tls",xhttpSettings:{host:"cdn.example.com",path:"/path?+&#%中文",mode:"auto"},
+    tlsSettings:{serverName:"cdn.example.com",fingerprint:"chrome",alpn:["h2"]}}}]}' > "$work/input/b.json"
 args=(--country US --provider oracle --client-a "$work/input/a.json" --client-b "$work/input/b.json" --output-dir "$work/export")
 "$ctl" show-links "${args[@]}" --json > "$work/status" 2> "$work/error"
 jq -e '.status=="PASS" and .links==2 and .gui_import=="untested"' "$work/status" >/dev/null
@@ -76,10 +76,10 @@ jq -en --rawfile uris "$work/export/links.txt" --slurpfile a "$work/input/a.json
     ($l|length)==3 and $l[2]=="" and ($l[0]|endswith("#US-oracle-reality")) and ($l[1]|endswith("#US-oracle-xhttp%2Btls%2Bcdn")) and
     ($l[1]|contains("@[2001:db8::10]:443?")) and
     $pa.pbk==($r.password|@uri) and $pa.pqv==($r.mldsa65Verify|@uri) and $pa.spx==($r.spiderX|@uri) and
-    $pa.type=="tcp" and $pb.type=="xhttp" and $pb.mode=="packet-up" and
+    $pa.type=="tcp" and $pb.type=="xhttp" and $pb.mode=="auto" and
     $pb.encryption==($ob.settings.vnext[0].users[0].encryption|@uri) and
     $pb.path==($ob.streamSettings.xhttpSettings.path|@uri) and
-    ($pb|has("ech")|not) and $pb.alpn=="h2%2Chttp%2F1.1"
+    ($pb|has("ech")|not) and ($pb|has("extra")|not) and $pb.alpn=="h2"
 ' >/dev/null
 jq -en --slurpfile original "$work/input/b.json" --slurpfile exported "$work/export/node-b.json" '
     ($original[0].outbounds | map(del(.tag)))==($exported[0].outbounds | map(del(.tag))) and
@@ -97,6 +97,20 @@ cp "$work/export/links.txt" "$work/saved"
 cmp -s "$work/saved" "$work/export/links.txt"
 leak_check
 printf '[PASS] IPv6, escaping, PQ fields, ECH-free URI/JSON and stable re-export\n'
+
+# Older input is still exportable without silently changing its mode or ALPN.
+jq '.outbounds[0].streamSettings.xhttpSettings.mode="packet-up" |
+    .outbounds[0].streamSettings.tlsSettings.alpn=["h2","http/1.1"]' \
+    "$work/input/b.json" > "$work/input/b-legacy.json"
+"$ctl" show-links "${args[@]}" --client-b "$work/input/b-legacy.json" --output-dir "$work/legacy" \
+    > "$work/status" 2> "$work/error"
+leak_check
+jq -en --slurpfile old "$work/input/b-legacy.json" --slurpfile new "$work/legacy/node-b.json" \
+    --rawfile uris "$work/legacy/links.txt" '
+    ($old[0].outbounds|map(del(.tag)))==($new[0].outbounds|map(del(.tag))) and
+    ($uris|contains("mode=packet-up")) and ($uris|contains("alpn=h2%2Chttp%2F1.1"))
+' >/dev/null
+printf '[PASS] auto/h2 default without Extra; legacy packet-up and ALPN preserved\n'
 
 negative_case=0
 must_fail() {

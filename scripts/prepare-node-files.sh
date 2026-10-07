@@ -142,8 +142,8 @@ jq -n --arg cdn "$cdn" --arg dir "$work" --rawfile uuid "$work/uuid-b" \
      outbounds:[{tag:"node-b",protocol:"vless",settings:{vnext:[{address:$cdn,port:443,
        users:[{id:($uuid|trim),encryption:($enc|trim)}]}]},
        streamSettings:{network:"xhttp",security:"tls",
-         xhttpSettings:{host:$cdn,path:("/"+($path|trim)),mode:"packet-up"},
-         tlsSettings:{serverName:$cdn,fingerprint:"chrome",alpn:["h2","http/1.1"]}}}]}
+         xhttpSettings:{host:$cdn,path:("/"+($path|trim)),mode:"auto"},
+         tlsSettings:{serverName:$cdn,fingerprint:"chrome",alpn:["h2"]}}}]}
     ' > "$work/client-b.json"
 if [[ $website != off ]]; then
     python3 "$root/scripts/prepare-website.py" --server-config "$work/server.json" \

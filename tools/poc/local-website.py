@@ -196,12 +196,18 @@ def main():
             threading.Thread(target=service.serve_forever, daemon=True).start()
             upload = work / 'upload'
             upload.write_bytes(payload)
-            for node, port in [('a', socks_a), ('b', socks_b)]:
+            # Keep the packet-up server and HTTP/1.1 Nginx upstream unchanged while
+            # varying one client setting at a time, including the previous default.
+            cases = [('a', socks_a, None, None),
+                     ('b', socks_b, 'packet-up', ['h2', 'http/1.1']),
+                     ('b', socks_b, 'packet-up', ['h2']),
+                     ('b', socks_b, 'auto', ['h2'])]
+            for node, port, mode, alpn in cases:
                 stream = {'network': 'raw', 'security': 'reality', 'realitySettings': {
                     'serverName': 'example.com', 'fingerprint': 'chrome', 'password': public, 'shortId': '12345678'}} if node == 'a' else {
                     'network': 'xhttp', 'security': 'tls', 'xhttpSettings': {
-                        'host': 'cdn.example.com', 'path': '/test-path', 'mode': 'packet-up'},
-                    'tlsSettings': {'serverName': 'cdn.example.com', 'fingerprint': 'chrome', 'alpn': ['h2'],
+                        'host': 'cdn.example.com', 'path': '/test-path', 'mode': mode},
+                    'tlsSettings': {'serverName': 'cdn.example.com', 'fingerprint': 'chrome', 'alpn': alpn,
                         'certificates': [{'certificateFile': cert, 'usage': 'verify'}]}}
                 user = {'id': uuid, 'encryption': 'none', 'flow': 'xtls-rprx-vision'} if node == 'a' else {'id': uuid, 'encryption': encryption}
                 client = {'log': {'loglevel': 'warning'}, 'inbounds': [{'listen': '127.0.0.1', 'port': port,
@@ -214,7 +220,8 @@ def main():
                 target = f'https://127.0.0.1:{echo}/'
                 assert run(proxy + [target]) == payload
                 assert run(proxy + ['--data-binary', '@' + str(upload), target]) == hashlib.sha256(payload).hexdigest().encode()
-                print(f'[PASS] authenticated node {node.upper()} multi-megabyte download/upload', flush=True)
+                label = node.upper() if node == 'a' else f'B mode={mode} alpn={",".join(alpn)} extra=absent'
+                print(f'[PASS] authenticated node {label} multi-megabyte download/upload', flush=True)
                 processes[-1].terminate()
                 processes[-1].wait(timeout=5)
                 client['outbounds'][0]['settings']['vnext'][0]['users'][0]['id'] = '00000000-0000-0000-0000-000000000000'
@@ -224,7 +231,7 @@ def main():
                 assert rejected.returncode != 0
                 processes[-1].terminate()
                 processes[-1].wait(timeout=5)
-                print(f'[PASS] wrong credential rejected for node {node.upper()}', flush=True)
+                print(f'[PASS] wrong credential rejected for node {label}', flush=True)
             # The proxy must surface backend failure, never replace it with the static homepage.
             processes[0].terminate()
             processes[0].wait(timeout=5)
@@ -272,8 +279,9 @@ def main():
             assert json.loads((prepared / 'prepared.json').read_text())['website'] is True
             client_b = json.loads((prepared / 'client-b.json').read_text())['outbounds'][0]
             assert client_b['streamSettings']['tlsSettings'] == {
-                'serverName': 'cdn.example.com', 'fingerprint': 'chrome', 'alpn': ['h2', 'http/1.1']}
-            assert client_b['streamSettings']['xhttpSettings']['mode'] == 'packet-up'
+                'serverName': 'cdn.example.com', 'fingerprint': 'chrome', 'alpn': ['h2']}
+            assert client_b['streamSettings']['xhttpSettings']['mode'] == 'auto'
+            assert 'extra' not in client_b['streamSettings']['xhttpSettings']
             assert client_b['settings']['vnext'][0]['users'][0]['encryption'].startswith('mlkem768x25519plus.')
             content = ''.join(file.read_text() for file in (prepared / 'website/site').iterdir())
             for value in [backend_config['streamSettings']['xhttpSettings']['path'],
@@ -290,8 +298,10 @@ def main():
             assert not (legacy / 'website').exists()
             legacy_b = json.loads((legacy / 'client-b.json').read_text())['outbounds'][0]
             assert legacy_b['streamSettings']['tlsSettings'] == client_b['streamSettings']['tlsSettings']
+            assert legacy_b['streamSettings']['xhttpSettings']['mode'] == 'auto'
+            assert 'extra' not in legacy_b['streamSettings']['xhttpSettings']
             print('[PASS] website-off preparation retains original direct XHTTP topology', flush=True)
-            print('[PASS] generated B clients omit ECH and preserve TLS, ML-KEM and packet-up', flush=True)
+            print('[PASS] generated B clients use auto/h2 without ECH/Extra; ML-KEM and packet-up server retained', flush=True)
             print('LOCAL_WEBSITE: PASS (real Cloudflare, user-network connectivity and systemd lifecycle still require verification)', flush=True)
         finally:
             for process in reversed(processes):

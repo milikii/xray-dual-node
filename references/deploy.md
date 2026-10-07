@@ -83,7 +83,9 @@ prepare 只生成私有文件并测试，不启动服务。输出目录必须新
 `--origin-cert`、`--origin-key` 必填，缺失或公共证书校验不通过时拒绝生成。
 读取真实文件的操作留在脚本内，Agent 不读回配置/密钥/原始日志。
 
-当前脚本覆盖 A′、单用户/单目标、A enc=none、B packet-up、ML-DSA on/off。
+当前脚本覆盖 A′、单用户/单目标、A enc=none、B 客户端 auto/h2、服务端 packet-up、ML-DSA on/off。
+B 的 Extra 不生成额外 JSON，v2rayNG 中留空即可。客户端 TLS 的 auto 在本 pin 选择 packet-up，
+仍需用户所在地网络实测，不能据此声称已解决所有 B 连接失败。
 `--website random` 为默认值，也可固定 ai-news/ai-hardware/ai-research/ai-digest；
 不把用户指定类型改成随机。样式首次随机后固定，资讯由独立三天定时任务更新。
 准备时默认首次抓取；`--website-fetch off` 仅用于离线准备/测试，不能将空站声称为已有最新资讯。

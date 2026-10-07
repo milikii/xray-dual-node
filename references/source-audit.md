@@ -28,6 +28,7 @@ verified_against: Xray-core v26.9.30（源码/CLI，加核心线上 PoC；详见
 | REALITY target 拨号/xver | target 连接后写 PROXY 头；ML-KEM 检查见握手流程 | [tls.go](https://github.com/XTLS/REALITY/blob/8cdf7bf9c7f0/tls.go) |
 | x25519 公钥输出 | 实际标签 Password (PublicKey)，不能只匹配 Password | [curve25519.go](https://github.com/XTLS/Xray-core/blob/v26.9.30/main/commands/all/curve25519.go) |
 | XHTTP auto | 先设 packet-up；security=REALITY 时才选择 stream-one/stream-up | [dialer.go](https://github.com/XTLS/Xray-core/blob/v26.9.30/transport/internet/splithttp/dialer.go) |
+| XHTTP ALPN/Extra | 普通 TLS 的 h2 与 h2,http/1.1 均选择 HTTP/2 传输；Extra 为可选 JSON | 同上；[transport_method.go](https://github.com/XTLS/Xray-core/blob/v26.9.30/infra/conf/transport_method.go) |
 | ECH 获取失败 | 设置无效 ECH 配置使连接失败，未直接清空 ECH 配置 | [ech.go](https://github.com/XTLS/Xray-core/blob/v26.9.30/transport/internet/tls/ech.go) |
 | fingerprint 名称 | 支持 hellochrome_120 和 chrome；现场 key share 对比见 PoC | [tls.go](https://github.com/XTLS/Xray-core/blob/v26.9.30/transport/internet/tls/tls.go) |
 

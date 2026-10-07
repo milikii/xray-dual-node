@@ -8,7 +8,8 @@ Skill 是否交付，以执行者有完整的任务规程、支持材料和验�
 目标检查、私密生成、运行服务安装、文件交付辅助脚本，以及测试、版本记录和实际运行证据。
 Skill 版本为 0.1.0，默认 core 为 v26.9.30，两个版本分别管理。
 
-默认 A′、CF 来源限制、未知 SNI blackhole、A enc=none、B packet-up＋Encryption，不启用 ECH；
+默认 A′、CF 来源限制、未知 SNI blackhole、A enc=none、B 客户端 auto/h2＋Encryption、不填 Extra/ECH；
+固定 core 的普通 TLS auto 选择 packet-up，服务端保持 packet-up；
 目标不支持 ML-KEM 可回退 X25519；不用 REALITY 中继限速；只交付私有节点文件。
 本会话不用 CF token，其他环境由执行者根据用户的 DNS/证书设施选择。
 

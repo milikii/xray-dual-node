@@ -33,7 +33,7 @@ def node($which):
         require(.streamSettings.network=="xhttp" and .streamSettings.security=="tls" and
             (($u.flow // "")=="") and ($u.encryption|startswith("mlkem768x25519plus."))) |
         require(.streamSettings.xhttpSettings |
-            only(["host","path","mode"]) and .mode=="packet-up" and
+            only(["host","path","mode"]) and (.mode=="auto" or .mode=="packet-up") and
             (.host|text_value) and (.path|type)=="string" and (.path|startswith("/"))) |
         require(.streamSettings.tlsSettings |
             only(["serverName","fingerprint","alpn","echConfigList"]) and

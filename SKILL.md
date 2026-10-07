@@ -49,9 +49,12 @@ description: >-
   确认新证书同步、Xray 重启、Nginx 重载后才报告完成。
 - 默认 A′：REALITY 直听 443，target 指向回环 SNI router；B 为回环 XHTTP TLS。
   CDN SNI **且** CF 来源匹配才进入 B；伪装 SNI 中继真站；未知 SNI blackhole。
-- A 为 Vision、chrome、encryption=none；B 为 packet-up、VLESS Encryption 的 ML-KEM
-  认证组。B 地址默认 CDN 域名，TLS SNI 使用该域名，不配置 ECH、不导出 URI 的 `ech` 参数。
-  用户报告带 ECH 的 B 在国内网络不可用；保持 ML-KEM/packet-up，实际可用性须由用户所在网络复验。
+- A 为 Vision、chrome、encryption=none；B 客户端默认 mode=auto、ALPN 仅 h2、Extra 留空，
+  保留 VLESS Encryption 的 ML-KEM 认证组；当前 pin 在普通 TLS 下 auto 实际选择 packet-up。
+  B 地址和 TLS SNI 使用 CDN 域名，不配置 ECH、不导出 URI 的 `ech` 参数。
+  服务端保持 packet-up；网站反代到 Xray 使用 HTTP/1.1，不能把源站 ALPN 同时收紧为仅 h2。
+  v2rayNG Extra 的对象格式提示不是必填内容，详见 [客户端规程](references/client-compat.md)。
+  用户网络连通须实际复验，不能把改成 auto 或本地测试通过当作已修好。
 - 新部署默认给 XHTTP 域名生成 AI 新闻/硬件/论文或综合资讯静态站，类型和样式首次随机，
   每三天抓取公开 RSS 更新资讯；失败保留旧页，不编造内容和日期。独立更新用户不读取节点秘密。
   CF 流量先到回环 Nginx：普通路径提供网页，专用路径转发回环 XHTTP TLS；配置、验收和既有节点加站见

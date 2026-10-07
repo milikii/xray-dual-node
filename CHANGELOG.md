@@ -4,6 +4,10 @@
 
 Xray-core 保持 v26.9.30。
 
+- 节点 B 新客户端默认 mode=auto、ALPN=h2，Extra 留空；固定 core 在 TLS 下仍使用 packet-up。
+  导出器兼容旧 packet-up/ALPN，服务端及其供 Nginx 使用的 HTTP/1.1 保持不变。
+  补充 v2rayNG Extra 可为空的源码依据，区分本地验证和用户网络的连通验收。
+  [对照验证记录](docs/test-records/2026-10-07-node-b-auto-h2.md)包含三个客户端配置的实际上传/下载及鉴权反例。
 - 移除节点 B 生成配置中的 ECH 和分享 URI 的 ech 参数；VLESS Encryption/ML-KEM、packet-up、
   ALPN、TLS 验证及服务端配置保持不变。旧客户端须仅删除 echConfigList 后重新导出，国内连通待用户实测。
   [全套仓库验证记录](docs/test-records/2026-10-07-node-b-without-ech.md)区分已通过测试与待完成的实际节点验收。
