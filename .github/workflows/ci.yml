@@ -11,14 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install test dependencies
-        run: sudo apt-get update && sudo apt-get install -y shellcheck jq unzip ripgrep python3
+        run: sudo apt-get update && sudo apt-get install -y shellcheck jq unzip ripgrep python3 nginx
       - name: Validate instructions and helpers
         run: |
           tests/check-skill.sh
           tests/unit/helper-contracts.sh
           tests/unit/private-export.sh
           python3 tests/unit/reality-asn.py
+          python3 tests/unit/website.py
+          python3 tests/unit/news-site.py
       - name: Verify the fixed core and loopback routing
         run: |
           scripts/fetch-xray.sh --output-dir /tmp/xray-skill-ci-core
           tools/poc/local-routing.sh --xray /tmp/xray-skill-ci-core/xray
+          python3 tools/poc/local-website.py --xray /tmp/xray-skill-ci-core/xray

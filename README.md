@@ -6,6 +6,9 @@
 在一台 VPS 共用 443：A 为 VLESS＋REALITY＋Vision，B 为经 Cloudflare 的
 VLESS＋XHTTP packet-up＋TLS，启用 VLESS Encryption 和客户端 ECH。
 允许目标协商 X25519，不用 REALITY 中继限速。最终只交付私有节点文件，执行者只看到路径和状态。
+新部署的 XHTTP 域名默认附带 AI 资讯静态站：随机选择 AI 新闻、硬件、论文或综合类型及样式，
+每三天从公开 RSS 更新标题、短摘要、日期和原文链接，失败保留旧页。普通访问展示网页，
+节点路径经独立回环 Nginx 转发；详见 [网站规程](references/website.md)。
 
 ## 安装与调用
 
@@ -42,6 +45,8 @@ scripts/install-skill.sh
 core 固定 **v26.9.30**，哈希在 [versions.env](versions.env)。Debian 13 amd64＋真实 VPS/CF
 已测双节点、ECH、鉴权反例、来源限制、常驻服务、自签证书检查和私密导出。
 其他 Debian/Ubuntu 版本及 arm64 由执行者逐机验收，不扩大实测承诺。
+新增网站模式已通过隔离环境的静态站、A/B 代理和来源反例测试；真实 CF/ECH 与 systemd 生命周期
+仍需现场验收，见 [网站测试记录](docs/test-records/2026-10-07-website.md)。
 
 带脚本的默认路径是 A′、每节点单用户、A enc=none、B packet-up。B′、多用户和特殊参数由
 执行者核对源码后在副本中实现和验证，不宣称已有完整通用生成器。
@@ -70,7 +75,10 @@ tests/check-skill.sh
 tests/unit/private-export.sh
 tests/unit/helper-contracts.sh
 python3 tests/unit/reality-asn.py
+python3 tests/unit/website.py
+python3 tests/unit/news-site.py
 tools/poc/local-routing.sh --xray /absolute/path/to/verified/xray
+python3 tools/poc/local-website.py --xray /absolute/path/to/verified/xray
 ```
 
 仓库 CI 只检查技能和辅助脚本，不含服务器凭据、不部署 VPS。

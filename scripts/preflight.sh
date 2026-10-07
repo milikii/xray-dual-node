@@ -32,7 +32,7 @@ elif systemctl is-active --quiet xray-skill.service; then
     row P04 WARN 'existing Xray service; follow repair/upgrade flow, never reinitialize credentials'
 else row P04 FAIL '443 unavailable or listener inspection unavailable'; fi
 missing=()
-for dep in curl openssl unzip flock ss timeout getent tar zstd; do command -v "$dep" >/dev/null || missing+=("$dep"); done
+for dep in curl openssl unzip flock ss timeout getent tar zstd python3; do command -v "$dep" >/dev/null || missing+=("$dep"); done
 if ((${#missing[@]}==0)); then row P06 PASS 'required inspection and backup tools available'; else row P06 FAIL "missing commands: ${missing[*]}"; fi
 for host in github.com api.cloudflare.com; do
     if curl -sSIL --connect-timeout 5 --max-time 10 "https://$host/" >/dev/null 2>&1; then

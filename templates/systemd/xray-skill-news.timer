@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh the AI reading site every three days
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=3d
+RandomizedDelaySec=20min
+Unit=xray-skill-news.service
+
+[Install]
+WantedBy=timers.target

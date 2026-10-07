@@ -43,6 +43,10 @@ description: >-
   CDN SNI **且** CF 来源匹配才进入 B；伪装 SNI 中继真站；未知 SNI blackhole。
 - A 为 Vision、chrome、encryption=none；B 为 packet-up、VLESS Encryption 的 ML-KEM
   认证组和客户端 ECH。B 地址默认 CDN 域名。
+- 新部署默认给 XHTTP 域名生成 AI 新闻/硬件/论文或综合资讯静态站，类型和样式首次随机，
+  每三天抓取公开 RSS 更新资讯；失败保留旧页，不编造内容和日期。独立更新用户不读取节点秘密。
+  CF 流量先到回环 Nginx：普通路径提供网页，专用路径转发回环 XHTTP TLS；配置、验收和既有节点加站见
+  [XHTTP 网站](references/website.md)。
 - 允许目标不支持 ML-KEM 时协商 **X25519**。本 core 客户端仍需提供混合群；旧指纹可能失败。
   不把“提供混合群”或 ML-DSA 签名误报为最终后量子密钥交换。
 - **不用 REALITY 中继限速防刷**：省略 limitFallbackUpload/Download，不另设出口带宽限制

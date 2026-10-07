@@ -7,6 +7,8 @@ usage() {
     cat <<'EOF'
 Usage: prepare-node-files.sh --xray PATH --work-dir NEW_DIR --dest DOMAIN --cdn DOMAIN --address VPS_IP
                              [--mldsa on|off] [--origin-cert FILE --origin-key FILE]
+                             [--website random|ai-news|ai-hardware|ai-research|ai-digest|off]
+                             [--website-fetch on|off]
 Prepare A-prime server and two clients using checksum-verified Xray v26.9.30.
 The agent must first run check-reality-dest.sh; use --mldsa off if R13 is not established.
 Fetches public CF IP ranges. Uses a 365-day self-signed origin certificate by default;
@@ -14,13 +16,14 @@ provide an existing matching certificate/key pair to use a public-CA certificate
 No CF token, DNS changes, ACME issuance, process startup, or firewall changes.
 Server listens on 443 when explicitly started. Clients use loopback SOCKS 20808/20809.
 Private output must not be committed or printed. This helper only prepares files.
+Default website=random: AI public-feed site with periodic updates behind loopback Nginx.
 EOF
 }
-xray_bin='' work='' dest='' cdn='' address='' mldsa=on origin_cert='' origin_key=''
+xray_bin='' work='' dest='' cdn='' address='' mldsa=on origin_cert='' origin_key='' website=random website_fetch=on
 while (($#)); do
     case "$1" in
         --help|-h) usage; exit 0 ;;
-        --xray|--work-dir|--dest|--cdn|--address|--mldsa|--origin-cert|--origin-key)
+        --xray|--work-dir|--dest|--cdn|--address|--mldsa|--origin-cert|--origin-key|--website|--website-fetch)
             (($# >= 2)) || { usage >&2; exit 2; }
             case "$1" in
                 --xray) xray_bin=$2 ;;
@@ -31,6 +34,8 @@ while (($#)); do
                 --mldsa) mldsa=$2 ;;
                 --origin-cert) origin_cert=$2 ;;
                 --origin-key) origin_key=$2 ;;
+                --website) website=$2 ;;
+                --website-fetch) website_fetch=$2 ;;
             esac
             shift 2 ;;
         *) usage >&2; exit 2 ;;
@@ -38,11 +43,13 @@ while (($#)); do
 done
 [[ $xray_bin = /* && -x $xray_bin && $work = /* && ! -e $work && -n $address ]] || { usage >&2; exit 2; }
 [[ $mldsa == on || $mldsa == off ]] || exit 2
+case "$website" in random|ai-news|ai-hardware|ai-research|ai-digest|off) ;; *) exit 2 ;; esac
+[[ $website_fetch == on || $website_fetch == off ]] || exit 2
 [[ -z $origin_cert && -z $origin_key || -f $origin_cert && -f $origin_key ]] || exit 2
 for domain in "$dest" "$cdn"; do
     [[ $domain =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ && $domain = *.* && $domain != *..* ]] || exit 2
 done
-for dep in jq curl openssl awk; do command -v "$dep" >/dev/null || exit 3; done
+for dep in jq curl openssl awk python3; do command -v "$dep" >/dev/null || exit 3; done
 [[ $("$xray_bin" version) = 'Xray 26.9.30 '* ]] || exit 3
 mkdir -p "$work"
 chmod 700 "$work"
@@ -150,6 +157,17 @@ jq -n --arg cdn "$cdn" --arg dir "$work" --rawfile uuid "$work/uuid-b" \
            echConfigList:"cloudflare-ech.com+https://223.5.5.5/dns-query"}}}]}
     ' > "$work/client-b.json"
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+if [[ $website != off ]]; then
+    python3 "$root/scripts/prepare-website.py" --server-config "$work/server.json" \
+        --output-dir "$work/website" --theme "$website" --certificate-mode "$cert_mode" --fetch "$website_fetch"
+    jq '
+        (.inbounds[] | select(.tag=="xhttp-in") | .streamSettings.sockopt.acceptProxyProtocol)=false |
+        (.outbounds[] | select(.tag=="to-node-b") | .settings.redirect)="127.0.0.1:8003"
+    ' "$work/server.json" > "$work/server-web.json"
+    mv "$work/server-web.json" "$work/server.json"
+    jq '.website=true' "$work/prepared.json" > "$work/prepared-web.json"
+    mv "$work/prepared-web.json" "$work/prepared.json"
+fi
 "$root/scripts/check-policy.sh" "$work/server.json"
 for config in server client-a client-b; do
     "$xray_bin" run -test -c "$work/$config.json" > "$work/$config.test.log" 2>&1

@@ -40,6 +40,19 @@ if ss -Hltn 'sport = :8001 or sport = :8002' | awk '
     {if ($4!="127.0.0.1:8001" && $4!="127.0.0.1:8002") bad=1; n++} END {exit !(n==2 && !bad)}'; then
     row S04 PASS 'internal listeners restricted to loopback'
 else row S04 FAIL 'internal listeners missing or exposed'; fi
+website=false
+if jq -e '.website==true' /etc/xray-skill/recovery.json; then
+    website=true
+    if systemctl is-active --quiet xray-skill-web.service && systemctl is-enabled --quiet xray-skill-web.service && \
+        ss -Hltn 'sport = :8003' | awk '{if ($4!="127.0.0.1:8003") bad=1; n++} END {exit !(n==1 && !bad)}' && \
+        runuser -u xray-skill -- /usr/sbin/nginx -t -q -c /etc/xray-skill/nginx.conf; then
+        row W01 PASS 'isolated website service enabled/active, loopback TLS listener and config valid'
+    else row W01 FAIL 'website service/config/listener check failed'; fi
+    if systemctl is-active --quiet xray-skill-news.timer && systemctl is-enabled --quiet xray-skill-news.timer && \
+        [[ $(systemctl show xray-skill-news.service -p User --value) == xray-news ]]; then
+        row W02 PASS 'AI feed update timer enabled/active with a separate user'
+    else row W02 FAIL 'AI feed update timer or service user not configured'; fi
+fi
 if openssl x509 -in /etc/xray-skill/certs/origin/fullchain.pem -noout -checkend 1209600; then
     row C02 PASS 'origin certificate has more than 14 days remaining'
 else row C02 FAIL 'origin certificate missing, invalid or near expiry'; fi
@@ -56,8 +69,13 @@ if [[ $failed == false ]]; then
         row V05-V09 PASS 'A/B same-core proxy requests and wrong-credential controls passed'
     else row V05-V09 FAIL 'A/B proxy or credential controls failed; private details withheld'; fi
     cdn=$(jq -er '.inbounds[]|select(.tag=="xhttp-in")|.streamSettings.xhttpSettings.host' /etc/xray-skill/config.json)
-    status=$(curl --noproxy '*' -sS --connect-timeout 5 --max-time 15 -o /dev/null -w '%{http_code}' "https://$cdn/") || status=000
-    if [[ $status == 404 ]]; then row V14 PASS 'Cloudflare origin responds with expected XHTTP 404'; else row V14 FAIL "unexpected CDN root HTTP status=$status"; fi
+    if [[ $website == true ]]; then website_snapshot=$(readlink -f /var/www/xray-skill/current); fi
+    status=$(curl --noproxy '*' -sS --connect-timeout 5 --max-time 15 -o "$work/homepage" -w '%{http_code}' "https://$cdn/") || status=000
+    if [[ $website == true ]]; then
+        if [[ $status == 200 ]] && cmp -s "$work/homepage" "$website_snapshot/index.html"; then
+            row V14 PASS 'Cloudflare serves the installed static homepage'
+        else row V14 FAIL 'CDN homepage differs, fails, or is replaced by a challenge'; fi
+    elif [[ $status == 404 ]]; then row V14 PASS 'Cloudflare origin responds with expected XHTTP 404'; else row V14 FAIL "unexpected CDN root HTTP status=$status"; fi
     timeout 5 openssl s_client -connect 127.0.0.1:443 -servername "$cdn" </dev/null > "$work/direct" 2>&1 || true
     if grep -q 'BEGIN CERTIFICATE' "$work/direct"; then row V13 FAIL 'non-CF direct CDN SNI receives a certificate'; else row V13 PASS 'non-CF direct CDN SNI does not receive origin certificate'; fi
 else row V05-V09 WARN 'network probes not run because service prerequisites failed'; fi

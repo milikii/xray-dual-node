@@ -38,7 +38,7 @@ scripts/check-reality-dest.sh --strict --json --source-ip "$source_ip" example.c
 远程部署不可误用控制机 IP。REALITY 域名是要伪装的真实 HTTPS 站点，通常无需用户拥有；
 XHTTP 域名是用户控制并经 Cloudflare 代理到源站的域名，两者不要混用。
 预检本身不修复系统；执行者处理时钟、依赖和防火墙后重测。
-443 被其他服务占用时先识别/备份，不直接杀进程；8001/8002 必须空闲。至少 512 MB 内存、
+443 被其他服务占用时先识别/备份，不直接杀进程；8001/8002 必须空闲，默认网站还需 8003 空闲。至少 512 MB 内存、
 1 GB 磁盘；检查 systemd/权限和公网连通。放行 TCP 443，不改 SSH 规则，另核对安全组。
 目标 R03/R04/R06/R07 失败不能正常部署。R05 是允许的 X25519 回退；R13 不通过用 mldsa off。
 R10 通过 RIPEstat 对比源站与目标 DNS 解析 IP 的 ASN，显示具体 AS 编号和匹配/不匹配/未知数量。
@@ -63,6 +63,9 @@ R10 通过 RIPEstat 对比源站与目标 DNS 解析 IP 的 ASN，显示具体 A
 
 ## 4. 固定 core 与私有文件
 
+默认启用每三天更新的 AI 资讯静态网站，按 [网站规程](website.md) 准备 Nginx 依赖并检查已有实例；
+不要启用发行版默认站点。用户明确不需要网站时传 `--website off`。
+
 ```sh
 scripts/fetch-xray.sh --output-dir /root/xray-work/bin
 scripts/prepare-node-files.sh \
@@ -76,6 +79,10 @@ prepare 只生成私有文件并测试，不启动服务。输出目录必须新
 读取真实文件的操作留在脚本内，Agent 不读回配置/密钥/原始日志。
 
 当前脚本覆盖 A′、单用户/单目标、A enc=none、B packet-up、ML-DSA on/off。
+`--website random` 为默认值，也可固定 ai-news/ai-hardware/ai-research/ai-digest；
+不把用户指定类型改成随机。样式首次随机后固定，资讯由独立三天定时任务更新。
+准备时默认首次抓取；`--website-fetch off` 仅用于离线准备/测试，不能将空站声称为已有最新资讯。
+网站文件在准备目录生成，安装器负责独立服务、定时器和权限。
 B′、多用户、A encryption 或特殊传输参数，由执行者在副本中依据 pin 源码实现，做隔离及
 鉴权反例验证；不得静默接受未实现的参数。多用户每人导出独立的 A/B 两行文件。
 

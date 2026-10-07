@@ -12,7 +12,7 @@ fi
 [[ $# == 0 && $EUID == 0 ]] || { printf '[FAIL] CERT: root required; no arguments accepted\n' >&2; exit 2; }
 exec 3>&1 4>&2
 exec 1>/dev/null 2>/dev/null
-stage='' replaced=false active=false success=false
+stage='' replaced=false active=false success=false web_active=false
 cert=/etc/xray-skill/certs/origin/fullchain.pem
 key=/etc/xray-skill/certs/origin/privkey.pem
 finish() {
@@ -22,6 +22,7 @@ finish() {
         if [[ $replaced == true ]]; then
             cp -p -- "$stage/previous.pem" "$cert"
             if [[ $active == true ]]; then systemctl restart xray-skill.service || true; fi
+            if [[ $web_active == true ]]; then systemctl reload xray-skill-web.service || true; fi
         fi
         printf '[FAIL] CERT: renewal failed; details withheld\n' >&4
         ((result != 0)) || result=5
@@ -58,12 +59,20 @@ openssl verify -CAfile "$stage/new.pem" "$stage/new.pem"
 chown root:xray-skill "$stage/new.pem"
 chmod 640 "$stage/new.pem"
 if systemctl is-active --quiet xray-skill.service; then active=true; fi
+if systemctl is-active --quiet xray-skill-web.service; then web_active=true; fi
 mv -fT "$stage/new.pem" "$cert"
 replaced=true
 runuser -u xray-skill -- /usr/local/bin/xray-skill-xray run -test -format json -c /etc/xray-skill/config.json
+if [[ $web_active == true ]]; then
+    runuser -u xray-skill -- /usr/sbin/nginx -t -q -c /etc/xray-skill/nginx.conf
+fi
 if [[ $active == true ]]; then
     systemctl restart xray-skill.service
     systemctl is-active --quiet xray-skill.service
+fi
+if [[ $web_active == true ]]; then
+    systemctl reload xray-skill-web.service
+    systemctl is-active --quiet xray-skill-web.service
 fi
 success=true
 printf '[PASS] CERT: self-signed origin renewed for 365 days; existing key retained\n' >&3
