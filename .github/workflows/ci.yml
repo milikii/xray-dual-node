@@ -17,6 +17,7 @@ jobs:
           tests/check-skill.sh
           tests/unit/helper-contracts.sh
           tests/unit/private-export.sh
+          python3 tests/unit/reality-asn.py
       - name: Verify the fixed core and loopback routing
         run: |
           scripts/fetch-xray.sh --output-dir /tmp/xray-skill-ci-core

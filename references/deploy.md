@@ -29,16 +29,23 @@ verified_against: core v26.9.30；Debian 13 amd64/真实 CF 记录见 docs/test-
 
 ```sh
 apt-get update
-apt-get install -y curl jq unzip openssl iproute2 ca-certificates zstd util-linux
+apt-get install -y curl jq unzip openssl iproute2 ca-certificates zstd util-linux python3
 scripts/preflight.sh --json
-scripts/check-reality-dest.sh --strict --json example.com
+scripts/check-reality-dest.sh --strict --json --source-ip "$source_ip" example.com
 ```
 
-域名替换为用户提供的值。预检本身不修复系统；执行者处理时钟、依赖和防火墙后重测。
+域名替换为用户提供的 REALITY 伪装站；`source_ip` 使用已确认的部署目标公网 IP，
+远程部署不可误用控制机 IP。REALITY 域名是要伪装的真实 HTTPS 站点，通常无需用户拥有；
+XHTTP 域名是用户控制并经 Cloudflare 代理到源站的域名，两者不要混用。
+预检本身不修复系统；执行者处理时钟、依赖和防火墙后重测。
 443 被其他服务占用时先识别/备份，不直接杀进程；8001/8002 必须空闲。至少 512 MB 内存、
 1 GB 磁盘；检查 systemd/权限和公网连通。放行 TCP 443，不改 SSH 规则，另核对安全组。
 目标 R03/R04/R06/R07 失败不能正常部署。R05 是允许的 X25519 回退；R13 不通过用 mldsa off。
-R10/ASN 归属属于辅助核对，缺少资料不伪造 PASS。备用目标须分别验证。
+R10 通过 RIPEstat 对比源站与目标 DNS 解析 IP 的 ASN，显示具体 AS 编号和匹配/不匹配/未知数量。
+相同 ASN 仅是选站参考，不代表相同国家/物理机房，也不证明域名可用；不同 ASN 不阻止部署。
+查询服务只收到公网 IP，不发送域名配置或认证材料。查询失败标 WARN，禁止伪造相同结果；
+解析回源站自身则 FAIL，避免自连接回环。多 IP 最多查询 8 个并报告省略数，结果只代表此次 DNS 快照。
+备用目标须分别验证。详细判定及向用户解释的格式见 [REALITY 目标验收](reality-target.md)。
 
 ## 3. CF 与证书
 

@@ -69,6 +69,7 @@ GUI 导入边界见 [client-compat.md](references/client-compat.md)。
 tests/check-skill.sh
 tests/unit/private-export.sh
 tests/unit/helper-contracts.sh
+python3 tests/unit/reality-asn.py
 tools/poc/local-routing.sh --xray /absolute/path/to/verified/xray
 ```
 

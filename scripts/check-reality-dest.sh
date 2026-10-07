@@ -5,32 +5,36 @@ set -Eeuo pipefail
 umask 077
 usage() {
     cat <<'EOF'
-Usage: check-reality-dest.sh [--strict] [--json] [--timeout SECONDS] DOMAIN [DOMAIN...]
+Usage: check-reality-dest.sh [--strict] [--json] [--timeout SECONDS] [--source-ip VPS_IP] DOMAIN [DOMAIN...]
 Checks DNS/TCP/TLS1.3/h2/certificates/HTTP, target exclusions, latency and stability.
 ML-KEM unsupported by target or local OpenSSL is an accepted X25519 fallback (WARN).
 No host changes. Prints only check IDs/results, never certificate contents.
+R10 compares origin/target ASNs via RIPEstat (public IPs sent, no credentials).
+Different/unknown ASNs are advisory WARN; a target resolving to the origin is FAIL.
 Exit 4 on any FAIL. --strict is retained for the documented deployment invocation.
 EOF
 }
-json=false timeout_s=5 domains=()
+json=false timeout_s=5 domains=() source_ip=''
 while (($#)); do
     case "$1" in
         --help|-h) usage; exit 0 ;;
         --strict) shift ;;
         --json) json=true; shift ;;
         --timeout) (($# >= 2)) || exit 2; timeout_s=$2; shift 2 ;;
+        --source-ip) (($# >= 2)) || exit 2; source_ip=$2; shift 2 ;;
         --*) usage >&2; exit 2 ;;
         *) domains+=("$1"); shift ;;
     esac
 done
 [[ $timeout_s =~ ^[1-9][0-9]?$ && ${#domains[@]} -gt 0 ]] || { usage >&2; exit 2; }
-for dep in jq openssl curl timeout getent; do
+for dep in jq openssl curl timeout getent python3; do
     command -v "$dep" >/dev/null || { printf '[FAIL] missing target-check dependency\n' >&2; exit 3; }
 done
 for domain in "${domains[@]}"; do
     [[ $domain =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ && $domain == *.* && $domain != *..* ]] || exit 2
 done
 work=$(mktemp -d)
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 exec 3>&2 2>"$work/errors.log"
 trap 'rm -rf -- "$work"' EXIT
 trap 'printf "[FAIL] target checker at line %s; details withheld\n" "$LINENO" >&3' ERR
@@ -45,7 +49,7 @@ row() {
 for domain in "${domains[@]}"; do
     index=$((index + 1))
     if getent ahostsv4 "$domain" > "$work/dns" && [[ -s $work/dns ]]; then
-        row R01 PASS 'IPv4 resolution available; ASN classification is advisory and not performed'
+        row R01 PASS 'IPv4 resolution available'
     else row R01 FAIL 'no IPv4 address'; fi
     # $1 is expanded by the child shell, not this shell.
     # shellcheck disable=SC2016
@@ -58,7 +62,7 @@ for domain in "${domains[@]}"; do
         if grep -q 'TLSv1.3' "$work/tls"; then handshake=true; fi
     fi
     if [[ $handshake == true ]]; then row R03 PASS 'TLS 1.3 handshake verified'; else row R03 FAIL 'TLS 1.3 handshake/verification failed'; fi
-    if grep -q 'ALPN protocol: h2' "$work/tls"; then row R04 PASS 'ALPN h2'; else row R04 FAIL 'ALPN h2 not negotiated'; fi
+    if [[ $handshake == true ]] && grep -q 'ALPN protocol: h2' "$work/tls"; then row R04 PASS 'ALPN h2'; else row R04 FAIL 'ALPN h2 not negotiated in a verified handshake'; fi
     if timeout "$timeout_s" openssl s_client -connect "$domain:443" -servername "$domain" \
         -tls1_3 -groups X25519MLKEM768 -verify_hostname "$domain" -verify_return_error \
         </dev/null > "$work/pq" 2>&1; then
@@ -90,7 +94,12 @@ for domain in "${domains[@]}"; do
             row R09 WARN 'widely reused camouflage target' ;;
         *) row R09 PASS 'not on the small known-popular list; popularity is not exhaustive' ;;
     esac
-    row R10 WARN 'CDN ownership not inferred; agent may check public IP/ASN information separately'
+    # Include both DNS families for ASN comparison; transport probes above retain their own DNS selection.
+    cp "$work/dns" "$work/asn-dns"
+    getent ahostsv6 "$domain" >> "$work/asn-dns" || true
+    python3 "$root/scripts/check-reality-asn.py" --source-ip "$source_ip" \
+        --dns-file "$work/asn-dns" --timeout "$timeout_s" > "$work/asn-result"
+    row R10 "$(jq -er '.status' "$work/asn-result")" "$(jq -er '.detail' "$work/asn-result")"
     : > "$work/times"
     : > "$work/observations"
     for ((sample=0; sample<5; sample++)); do

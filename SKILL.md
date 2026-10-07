@@ -76,6 +76,8 @@ URI、UUID、REALITY 公钥/私钥、shortId、ML-DSA 材料、VLESS Encryption�
 - 发现 `/etc/xray-skill` 就转诊断/生命周期，不调用生成器重新创建密钥。
 - 目标 FAIL 不正常部署；ML-KEM 不支持是允许的回退。用户明确要求忽略不合格目标时
   记录例外和检查结果，不默认绕过。
+- 部署前运行 REALITY 目标完整检查，传入实际 VPS 公网 IP 对比 ASN；向用户解释失败项和 WARN。
+  ASN 不同不是硬性失败，同 ASN 也不保证可用，详见 [目标验收](references/reality-target.md)。
 - core 使用固定 tag/hash；字段查该 tag 源码/文档。run -test 单独通过不能证明字段被识别。
   不猜字段，不因测试失败删除鉴权、来源限制或 TLS 校验。
 - 改配置先 check-policy.sh，再 run -test -format json（输出写私有日志），通过才重启。
