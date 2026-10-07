@@ -20,8 +20,7 @@ jq -n '{outbounds:[{tag:"node-a",protocol:"vless",settings:{vnext:[{address:"203
 jq -n '{outbounds:[{tag:"node-b",protocol:"vless",settings:{vnext:[{address:"2001:db8::10",port:443,
     users:[{id:"00000000-0000-0000-0000-000000000000",encryption:"mlkem768x25519plus.TEST+/=&?#%"}]}]},
     streamSettings:{network:"xhttp",security:"tls",xhttpSettings:{host:"cdn.example.com",path:"/path?+&#%中文",mode:"packet-up"},
-    tlsSettings:{serverName:"cdn.example.com",fingerprint:"chrome",alpn:["h2","http/1.1"],
-    echConfigList:"cloudflare-ech.com+https://dns.example.com/dns-query?x=1&y=2"}}}]}' > "$work/input/b.json"
+    tlsSettings:{serverName:"cdn.example.com",fingerprint:"chrome",alpn:["h2","http/1.1"]}}}]}' > "$work/input/b.json"
 args=(--country US --provider oracle --client-a "$work/input/a.json" --client-b "$work/input/b.json" --output-dir "$work/export")
 "$ctl" show-links "${args[@]}" --json > "$work/status" 2> "$work/error"
 jq -e '.status=="PASS" and .links==2 and .gui_import=="untested"' "$work/status" >/dev/null
@@ -80,7 +79,12 @@ jq -en --rawfile uris "$work/export/links.txt" --slurpfile a "$work/input/a.json
     $pa.type=="tcp" and $pb.type=="xhttp" and $pb.mode=="packet-up" and
     $pb.encryption==($ob.settings.vnext[0].users[0].encryption|@uri) and
     $pb.path==($ob.streamSettings.xhttpSettings.path|@uri) and
-    $pb.ech==($ob.streamSettings.tlsSettings.echConfigList|@uri) and $pb.alpn=="h2%2Chttp%2F1.1"
+    ($pb|has("ech")|not) and $pb.alpn=="h2%2Chttp%2F1.1"
+' >/dev/null
+jq -en --slurpfile original "$work/input/b.json" --slurpfile exported "$work/export/node-b.json" '
+    ($original[0].outbounds | map(del(.tag)))==($exported[0].outbounds | map(del(.tag))) and
+    $exported[0].outbounds[0].tag=="US-oracle-xhttp+tls+cdn" and
+    ($exported[0].outbounds[0].streamSettings.tlsSettings|has("echConfigList")|not)
 ' >/dev/null
 jq -en --slurpfile original "$work/input/a.json" --slurpfile exported "$work/export/node-a.json" '
     ($original[0].outbounds | map(del(.tag)))==($exported[0].outbounds | map(del(.tag))) and
@@ -92,7 +96,7 @@ cp "$work/export/links.txt" "$work/saved"
 "$ctl" show-links "${args[@]}" > "$work/status" 2> "$work/error"
 cmp -s "$work/saved" "$work/export/links.txt"
 leak_check
-printf '[PASS] IPv6, escaping, PQ/ECH fields, JSON preservation and stable re-export\n'
+printf '[PASS] IPv6, escaping, PQ fields, ECH-free URI/JSON and stable re-export\n'
 
 negative_case=0
 must_fail() {

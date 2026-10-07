@@ -270,6 +270,11 @@ def main():
             assert backend_config['streamSettings']['sockopt']['acceptProxyProtocol'] is False
             assert backend_config['streamSettings']['security'] == 'tls'
             assert json.loads((prepared / 'prepared.json').read_text())['website'] is True
+            client_b = json.loads((prepared / 'client-b.json').read_text())['outbounds'][0]
+            assert client_b['streamSettings']['tlsSettings'] == {
+                'serverName': 'cdn.example.com', 'fingerprint': 'chrome', 'alpn': ['h2', 'http/1.1']}
+            assert client_b['streamSettings']['xhttpSettings']['mode'] == 'packet-up'
+            assert client_b['settings']['vnext'][0]['users'][0]['encryption'].startswith('mlkem768x25519plus.')
             content = ''.join(file.read_text() for file in (prepared / 'website/site').iterdir())
             for value in [backend_config['streamSettings']['xhttpSettings']['path'],
                           backend_config['settings']['clients'][0]['id'], backend_config['settings']['decryption']]:
@@ -283,8 +288,11 @@ def main():
             legacy_target = next(item for item in legacy_config['outbounds'] if item['tag'] == 'to-node-b')
             assert legacy_target['settings']['redirect'] == '127.0.0.1:8002'
             assert not (legacy / 'website').exists()
+            legacy_b = json.loads((legacy / 'client-b.json').read_text())['outbounds'][0]
+            assert legacy_b['streamSettings']['tlsSettings'] == client_b['streamSettings']['tlsSettings']
             print('[PASS] website-off preparation retains original direct XHTTP topology', flush=True)
-            print('LOCAL_WEBSITE: PASS (real Cloudflare, ECH and systemd lifecycle still require VPS verification)', flush=True)
+            print('[PASS] generated B clients omit ECH and preserve TLS, ML-KEM and packet-up', flush=True)
+            print('LOCAL_WEBSITE: PASS (real Cloudflare, user-network connectivity and systemd lifecycle still require verification)', flush=True)
         finally:
             for process in reversed(processes):
                 if process.poll() is None:

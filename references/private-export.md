@@ -87,7 +87,7 @@ IP 地理库的位置是估计值，冲突时优先采用已确认的实例区�
   该旧正文不能单独证明新参数或 VLESS Encryption 支持。
 - 参数核对：[v2rayN VLESSFmt.cs @ f5747bb](https://github.com/2dust/v2rayN/blob/f5747bb3212ad65c362bd82a19e520b2db4c38b0/v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs)
   与 [BaseFmt.cs](https://github.com/2dust/v2rayN/blob/f5747bb3212ad65c362bd82a19e520b2db4c38b0/v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs)。
-  源码读取 encryption、pbk、sid、spx、pqv、ech 及 XHTTP mode/host/path。
+  源码读取 encryption、pbk、sid、spx、pqv 及 XHTTP mode/host/path；当前不导出 ech 参数。
 - IPv6 地址加方括号，查询值及节点名称逐项 URL 编码，名称不嵌入真实地址。
   没有把 ML-DSA Verify 或长 Encryption 字段截短。JSON 保留这些认证参数。
 - 这是源码兼容依据，不能代替各固定版本 GUI 的实际导入与连通测试，E9 保持未完成。
@@ -95,6 +95,6 @@ IP 地理库的位置是估计值，冲突时优先采用已确认的实例区�
 ## 当前测试
 
 `tests/unit/private-export.sh` 使用合成数据，验证两行输出、权限、稳定重复导出、IPv6、
-特殊字符、ML-DSA/ECH/Encryption 编码、异常/跟踪模式无秘密输出、错误 core 退出、
+特殊字符、ML-DSA/Encryption 编码、新 URI/JSON 无 ECH、异常/跟踪模式无秘密输出、错误 core 退出、
 符号链接/硬链接/公开目录拒绝、原文件保留以及并发锁。测试日志仅报告检查结果。
 内部 `scripts/lib/links.jq` 只能由受控导出器调用，直接使用 jq 会输出秘密。

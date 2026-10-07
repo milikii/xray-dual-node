@@ -143,8 +143,7 @@ jq -n --arg cdn "$cdn" --arg dir "$work" --rawfile uuid "$work/uuid-b" \
        users:[{id:($uuid|trim),encryption:($enc|trim)}]}]},
        streamSettings:{network:"xhttp",security:"tls",
          xhttpSettings:{host:$cdn,path:("/"+($path|trim)),mode:"packet-up"},
-         tlsSettings:{serverName:$cdn,fingerprint:"chrome",alpn:["h2","http/1.1"],
-           echConfigList:"cloudflare-ech.com+https://223.5.5.5/dns-query"}}}]}
+         tlsSettings:{serverName:$cdn,fingerprint:"chrome",alpn:["h2","http/1.1"]}}}]}
     ' > "$work/client-b.json"
 if [[ $website != off ]]; then
     python3 "$root/scripts/prepare-website.py" --server-config "$work/server.json" \

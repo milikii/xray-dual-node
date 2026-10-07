@@ -4,6 +4,9 @@
 
 Xray-core 保持 v26.9.30。
 
+- 移除节点 B 生成配置中的 ECH 和分享 URI 的 ech 参数；VLESS Encryption/ML-KEM、packet-up、
+  ALPN、TLS 验证及服务端配置保持不变。旧客户端须仅删除 echConfigList 后重新导出，国内连通待用户实测。
+  [全套仓库验证记录](docs/test-records/2026-10-07-node-b-without-ech.md)区分已通过测试与待完成的实际节点验收。
 - 部署交付增加实际 XHTTP 域名的可复制 Cloudflare 缓存绕过表达式及面板步骤；
   专用脚本只输出经过验证的域名，不显示随机路径或节点凭据，不把生成表达式误报为已配置规则。
 - XHTTP 改为必须使用公共 CA 证书，默认 Let’s Encrypt + Cloudflare Full (Strict)。

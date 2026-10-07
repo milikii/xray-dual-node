@@ -90,5 +90,5 @@ sockopt.acceptProxyProtocol 改为 false；CF 规则、TLS、encryption 等保�
 - 网站服务和资讯定时器 active/enabled，资讯用户独立，8003 仅回环；证书续期重载、失败回滚及重启后连通须在实际 VPS 验收。
 
 本仓库离线测试验证所有主题、链接、随机组合与配置注入拒绝；隔离端口集成测试验证本地
-TLS/PROXY 分流、静态站、真实 A/B 上传下载和来源反例。真实 CF/ECH 与 systemd 生命周期
+TLS/PROXY 分流、静态站、真实 A/B 上传下载和来源反例。真实 CF、用户所在地网络与 systemd 生命周期
 仍须逐机验收，不把本地模拟 CF 来源当作实际 Cloudflare 已测试。

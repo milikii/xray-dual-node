@@ -40,7 +40,7 @@ SHA256(Xray-linux-64.zip)=f851110beaff16e78d643f0ccfd9524b4a44dfd59bae3e34bb52bb
 | E4 | 本次目标 PASS：回落与直连的 DER 证书、TLS1.3、cipher、h2、JA3S 相等；5 组握手时间已测 | 未测 JA4S、跨地域、长时间稳定性；完整 R01–R12 脚本仍属 T4 |
 | E5 | PASS：抓包看到 CF 回源 SNI 为用户 CDN 域名，ALPN offer 为 h2,http/1.1 | 仅本次 zone 配置 |
 | E6 | 同 pin 客户端 PASS：正确 ML-DSA Verify 成功，省略 Verify 仍成功，错误 Verify 失败；目标证书链 4648 字节 | GUI/旧客户端矩阵、开关前后握手体积与延迟对照 |
-| E7 | PASS：223.5.5.5 TLS IP 校验成功，客户端从它获取 ECH 后实际代理成功；outer SNI 为 cloudflare-ech.com | 本次无需回退 DoH，未测用户所在地网络 |
+| E7 | 历史 PASS：223.5.5.5 TLS IP 校验成功，客户端从它获取 ECH 后实际代理成功；outer SNI 为 cloudflare-ech.com | 当时未测用户所在地网络；用户后续反馈“墙内不可用”，定位到 ECH 扩展丢包，当前 B 已移除 ECH；移除后的国内连通待用户实测 |
 | E8 | 历史限速副作用已验证：128 KiB/s fallback 限速也拖慢 B；用户已否决该防护方式，常规工具已移除限速实验 | 外围 nft 防刷测试仍未完成 |
 | E9 | PENDING | v2rayN/v2rayNG/Mihomo/sing-box 各固定版本导入及实际连接 |
 | E10 | 短样本 PASS：1 MiB 下载 packet-up 0.346s，auto 0.289s；源码表明 TLS 的 auto 选 packet-up | 多轮/大负载吞吐、extra/xmux 推荐值，不能据短样本做容量推荐 |
@@ -160,6 +160,8 @@ Authenticated node B request: success; exit IP=<VPS_IPV6>
 
 抓包时另一次普通 curl 请求不会启用 ECH，不能把该请求的明文 CDN SNI 混作 Xray 客户端证据。
 ECH 源码在取不到配置时设置无效配置使连接失败，出处见 source-audit。
+以上仅保留为历史证据；用户后续报告带 ECH 的 B 在其国内网络不可用（GFW 丢弃含 type 65037
+扩展的握手）。此网络根因由用户反馈，本仓库未在该网络独立复现；当前配置不再启用 ECH。
 
 E8/E10 的固定 1 MiB、单次下载历史实验（单位 bytes/s；限速阶段已从当前脚本移除）：
 

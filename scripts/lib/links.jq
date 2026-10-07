@@ -54,8 +54,7 @@ def uri($o;$which;$name):
     else
         $o.streamSettings.tlsSettings as $t | $o.streamSettings.xhttpSettings as $x |
         {encryption:$u.encryption,security:"tls",sni:$t.serverName,fp:$t.fingerprint,
-         alpn:($t.alpn|join(",")),type:"xhttp",host:$x.host,path:$x.path,mode:$x.mode} +
-        (if $t.echConfigList!=null then {ech:$t.echConfigList} else {} end)
+         alpn:($t.alpn|join(",")),type:"xhttp",host:$x.host,path:$x.path,mode:$x.mode}
     end | query) as $q |
     "vless://"+$u.id+"@"+$host+":"+($v.port|tostring)+"?"+$q+"#"+($name|@uri);
 def full_client:

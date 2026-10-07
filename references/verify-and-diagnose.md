@@ -25,8 +25,9 @@ scripts/check-service.sh --json
    没有外部测试机时继续本机部署和检查，将外部入口标为未测试，不把另一台 VPS 当作本机部署前提。
 2. **出口**：临时客户端 curl CF trace，脚本内部比较出口 IP 与 VPS 可用 v4/v6，
    只回传相等/不相等，不显示地址/节点。
-3. **ECH**：仅在变更或尚无证据时抓取客户端 ClientHello，返回“outer SNI 符合预期、
-   存在 ECH 扩展”的布尔结果，原始包留私有目录。`echConfigList` 存在不是 ECH 生效证据。
+3. **B TLS**：确认生成和导出的 B JSON 无 `echConfigList`、新 URI 无 `ech` 参数，SNI 为 CDN 域名。
+   对国内 B 不通/A 正常的旧客户端，先按 [客户端规程](client-compat.md#已有-b-客户端移除-ech) 移除 ECH，
+   不同时调整 ML-KEM、packet-up 或服务端。目标机自测不能替代用户所在国内网络的最终实测。
 4. **目标**：重新执行 check-reality-dest.sh；目标协商 X25519 是允许行为，不误报后量子握手成功。
 5. **客户端**：收集软件/内置 core 版本，按 client-compat.md 核对；不要要求用户贴真实 URI。
 6. **变更后**：对比私有 links.txt 是否变化，只输出比较结果。服务留运行，临时客户端全部退出。
@@ -38,7 +39,7 @@ scripts/check-service.sh --json
 | A/B 都不通，S01 失败 | 服务是否被停止、未自启或设 RuntimeMaxSec；核对 -test 后恢复常驻服务 |
 | 443 被其他进程占用 | 识别既有服务，不杀未知进程；按授权备份/迁移 |
 | A 失败，B 正常 | 目标状态、时钟、core/指纹是否提供混合群、shortId/ML-DSA 是否被客户端丢弃 |
-| B 失败，A 正常 | CF 橙云/回源 SNI、WAF/缓存、TLS 证书/模式、Encryption/packet-up/ECH 参数 |
+| B 失败，A 正常 | 检查旧客户端残留 ECH；再查 CF 橙云/回源 SNI、WAF/缓存、TLS 证书/模式及 Encryption/packet-up，逐项验证 |
 | CF 521/522 | 服务或端口不通、安全组、错误源站地址 |
 | CF 525 | CF 到源站 TLS 握手失败；核对监听、SNI、协议、证书和链 |
 | CF 526 | CF 拒绝源站证书；核对实际生效的 Full (Strict)、SAN、信任链及有效期，见下文 |
