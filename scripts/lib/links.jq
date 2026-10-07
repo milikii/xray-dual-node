@@ -42,7 +42,7 @@ def node($which):
             ((has("echConfigList")|not) or (.echConfigList|text_value)))
     end;
 def query: to_entries | map((.key|@uri)+"="+(.value|tostring|@uri)) | join("&");
-def uri($o;$which):
+def uri($o;$which;$name):
     $o.settings.vnext[0] as $v | $v.users[0] as $u |
     (if $v.address|contains(":") then "["+$v.address+"]" else $v.address end) as $host |
     (if $which=="a" then
@@ -57,7 +57,7 @@ def uri($o;$which):
          alpn:($t.alpn|join(",")),type:"xhttp",host:$x.host,path:$x.path,mode:$x.mode} +
         (if $t.echConfigList!=null then {ech:$t.echConfigList} else {} end)
     end | query) as $q |
-    "vless://"+$u.id+"@"+$host+":"+($v.port|tostring)+"?"+$q+"#node-"+$which;
+    "vless://"+$u.id+"@"+$host+":"+($v.port|tostring)+"?"+$q+"#"+($name|@uri);
 def full_client:
     {log:{loglevel:"warning"},
      inbounds:[

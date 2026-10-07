@@ -8,6 +8,8 @@
 secrets/
 client/
 links.txt
+node-a.json
+node-b.json
 node-links*.txt
 .export.*
 __pycache__/

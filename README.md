@@ -53,8 +53,10 @@ GUI 导入边界见 [client-compat.md](references/client-compat.md)。
 
 ## 私密文件与维护
 
-默认交付 `/etc/xray-skill/client/links.txt`（A/B 两行），附 `node-a.json`、`node-b.json`。
-目录 700、文件 600，用户自己下载；AI 不预览、不贴聊天/Issue。两份 JSON 默认本地端口相同，二选一启动。
+默认在调用技能时的当前目录交付 `links.txt`（A/B 两行）、`node-a.json`、`node-b.json`。
+文件 600，保留当前目录权限；AI 不预览、不贴聊天/Issue。两份 JSON 默认本地端口相同，二选一启动。
+节点按源站 IP 归属命名，例如 `US-oracle-reality`、`US-oracle-xhttp+tls+cdn`；日本使用 `JP` 前缀。
+国家或运营商无法确认时使用 `ZZ` / `unknown` 并说明，不根据 CF CDN 边缘位置命名。
 这种约束降低意外泄露，不能技术性隔离 root 权限的执行者。
 
 上游跟进由执行者按 [MAINTENANCE.md](docs/MAINTENANCE.md) 执行：查官方变更 → 核对源码/文档

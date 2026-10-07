@@ -22,7 +22,7 @@ jq -n '{outbounds:[{tag:"node-b",protocol:"vless",settings:{vnext:[{address:"200
     streamSettings:{network:"xhttp",security:"tls",xhttpSettings:{host:"cdn.example.com",path:"/path?+&#%中文",mode:"packet-up"},
     tlsSettings:{serverName:"cdn.example.com",fingerprint:"chrome",alpn:["h2","http/1.1"],
     echConfigList:"cloudflare-ech.com+https://dns.example.com/dns-query?x=1&y=2"}}}]}' > "$work/input/b.json"
-args=(--client-a "$work/input/a.json" --client-b "$work/input/b.json" --output-dir "$work/export")
+args=(--country US --provider oracle --client-a "$work/input/a.json" --client-b "$work/input/b.json" --output-dir "$work/export")
 "$ctl" show-links "${args[@]}" --json > "$work/status" 2> "$work/error"
 jq -e '.status=="PASS" and .links==2 and .gui_import=="untested"' "$work/status" >/dev/null
 [[ ! -s $work/error && $(wc -l < "$work/export/links.txt") == 2 ]]
@@ -37,6 +37,36 @@ leak_check() {
 leak_check
 printf '[PASS] private files, exactly two links, no credentials in stdout/stderr\n'
 
+# Default output follows the invocation directory without changing its mode.
+mkdir -m 755 "$work/current"
+(
+    cd "$work/current"
+    "$ctl" show-links --country US --provider oracle --client-a "$work/input/a.json" --client-b "$work/input/b.json" --json
+) > "$work/status" 2> "$work/error"
+jq -e --arg dir "$work/current" '.links_file==($dir+"/links.txt")' "$work/status" >/dev/null
+[[ $(stat -c %a "$work/current") == 755 ]]
+for file in links.txt node-a.json node-b.json; do
+    [[ $(stat -c %a "$work/current/$file") == 600 ]]
+    cmp -s "$work/current/$file" "$work/export/$file"
+done
+leak_check
+
+# A checkout may be the invocation directory; synthetic exports stay untracked.
+mkdir -p "$work/repo/scripts"
+cp "$root/scripts/show-links.sh" "$work/repo/scripts/"
+cp -r "$root/scripts/lib" "$work/repo/scripts/"
+cp "$root/.gitignore" "$work/repo/"
+git init -q "$work/repo"
+(
+    cd "$work/repo"
+    scripts/show-links.sh --country US --provider oracle --client-a "$work/input/a.json" --client-b "$work/input/b.json"
+) > "$work/status" 2> "$work/error"
+for file in links.txt node-a.json node-b.json .export.lock; do
+    git -C "$work/repo" check-ignore -q "$file"
+done
+leak_check
+printf '[PASS] default current-directory export preserves directory mode and Git ignores\n'
+
 # Check wire parameter values against independently encoded source fields.
 jq -en --rawfile uris "$work/export/links.txt" --slurpfile a "$work/input/a.json" --slurpfile b "$work/input/b.json" '
     def params: split("?")[1] | split("#")[0] | split("&") |
@@ -44,7 +74,7 @@ jq -en --rawfile uris "$work/export/links.txt" --slurpfile a "$work/input/a.json
     ($uris|split("\n")) as $l | ($l[0]|params) as $pa | ($l[1]|params) as $pb |
     ($a[0].outbounds[0].streamSettings.realitySettings) as $r |
     ($b[0].outbounds[0]) as $ob |
-    ($l|length)==3 and $l[2]=="" and ($l[0]|endswith("#node-a")) and ($l[1]|endswith("#node-b")) and
+    ($l|length)==3 and $l[2]=="" and ($l[0]|endswith("#US-oracle-reality")) and ($l[1]|endswith("#US-oracle-xhttp%2Btls%2Bcdn")) and
     ($l[1]|contains("@[2001:db8::10]:443?")) and
     $pa.pbk==($r.password|@uri) and $pa.pqv==($r.mldsa65Verify|@uri) and $pa.spx==($r.spiderX|@uri) and
     $pa.type=="tcp" and $pb.type=="xhttp" and $pb.mode=="packet-up" and
@@ -53,7 +83,8 @@ jq -en --rawfile uris "$work/export/links.txt" --slurpfile a "$work/input/a.json
     $pb.ech==($ob.streamSettings.tlsSettings.echConfigList|@uri) and $pb.alpn=="h2%2Chttp%2F1.1"
 ' >/dev/null
 jq -en --slurpfile original "$work/input/a.json" --slurpfile exported "$work/export/node-a.json" '
-    $original[0].outbounds==$exported[0].outbounds and
+    ($original[0].outbounds | map(del(.tag)))==($exported[0].outbounds | map(del(.tag))) and
+    $exported[0].outbounds[0].tag=="US-oracle-reality" and
     all($exported[0].inbounds[]; .listen=="127.0.0.1") and
     $exported[0].log=={loglevel:"warning"}
 ' >/dev/null
@@ -72,6 +103,19 @@ must_fail() {
     leak_check
     cmp -s "$work/saved" "$work/export/links.txt"
 }
+must_fail "$ctl" show-links "${args[@]}" --country ''
+must_fail "$ctl" show-links "${args[@]}" --country USA
+must_fail "$ctl" show-links "${args[@]}" --provider 'bad#name'
+must_fail "$ctl" show-links "${args[@]}" --provider ''
+"$ctl" show-links "${args[@]}" --country jp --provider Oracle --output-dir "$work/japan" \
+    > "$work/status" 2> "$work/error"
+leak_check
+jq -e '.outbounds[0].tag=="JP-oracle-xhttp+tls+cdn"' "$work/japan/node-b.json" >/dev/null
+jq -en --rawfile us "$work/export/links.txt" --rawfile jp "$work/japan/links.txt" '
+    ($us|split("\n")|map(split("#")[0]))==($jp|split("\n")|map(split("#")[0])) and
+    ($jp|contains("#JP-oracle-reality\n")) and ($jp|endswith("#JP-oracle-xhttp%2Btls%2Bcdn\n"))
+' >/dev/null
+printf '[PASS] country/provider names, normalization, URI encoding and unchanged connection parameters\n'
 cp "$work/input/a.json" "$work/input/original.json"
 printf '{"PRIVATE_TEST_SENTINEL": broken}\n' > "$work/input/a.json"
 must_fail "$ctl" show-links "${args[@]}"
@@ -92,7 +136,8 @@ must_fail "$ctl" show-links "${args[@]}" --output-dir "$work/export-alias"
 mkdir "$work/bad-output"
 ln -s "$work/saved" "$work/bad-output/links.txt"
 must_fail "$ctl" show-links "${args[@]}" --output-dir "$work/bad-output"
-must_fail "$ctl" show-links "${args[@]}" --output-dir "$root/client"
+git -C "$work/repo" add -f node-a.json
+must_fail "$work/repo/scripts/show-links.sh" "${args[@]}" --output-dir "$work/repo"
 mkdir -m 755 "$work/public"
 must_fail "$ctl" show-links "${args[@]}" --output-dir "$work/public"
 must_fail "$ctl" show-links "${args[@]}" --qr

@@ -5,6 +5,8 @@ verified_against: core v26.9.30；Debian 13 amd64/真实 CF 记录见 docs/test-
 
 ## 1. 输入与已有环境
 
+开始时记录调用技能的当前目录绝对路径为 `delivery_dir`，在切换目录或 SSH 前保存，供最终交付使用。
+
 目标未明确时，首先询问：“是否在当前机器部署？”等待回答后再进入对应分支：
 - 是：直接开始本机检查和部署，无需远程连接信息。
 - 否：再收集远程机器的 SSH 地址、用户、端口和认证方式中缺失的项，优先复用已有 SSH 配置和凭据。
@@ -83,10 +85,15 @@ scripts/install-runtime.sh --work-dir /root/xray-work/prepared --xray-dir /root/
 ## 6. 验收与交付
 
 按 [验收规程](verify-and-diagnose.md) 验证 A/B 实际代理、来源反例和服务自启；不能只看 active。
+按 [私密交付的命名规程](private-export.md#ip-归属与节点命名) 核对源站 IP 的国家及机房/运营商，
+得到 `country`、`provider`，用于两条节点的名称。
 
 ```sh
-scripts/show-links.sh --xray /usr/local/bin/xray-skill-xray --json
+scripts/show-links.sh --country "$country" --provider "$provider" \
+  --output-dir "$delivery_dir" --xray /usr/local/bin/xray-skill-xray --json
 ```
 
-交付 `/etc/xray-skill/client/links.txt`（两行）和两份 JSON，回复仅包含路径/权限/状态。
+本机部署在记录的当前目录执行导出（可通过 Skill 绝对路径调用脚本），交付该目录下的
+`links.txt`（两行）、`node-a.json`、`node-b.json`，回复仅包含路径/权限/状态。
+远程部署按 [私密交付](private-export.md) 将三份文件取回调用技能的当前目录。
 保留服务运行，只清理临时测试客户端。

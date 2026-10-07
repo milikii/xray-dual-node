@@ -5,30 +5,36 @@ set -Eeuo pipefail
 umask 077
 usage() {
     cat <<'EOF'
-Usage: xrayctl show-links [--client-a FILE] [--client-b FILE] [--output-dir DIR]
+Usage: xrayctl show-links --country CODE --provider NAME
+                          [--client-a FILE] [--client-b FILE] [--output-dir DIR]
                           [--xray BIN] [--json]
 Reads private Xray client JSON files (one node-a / node-b outbound each).
+Agent supplies the origin IP's verified country code and provider (e.g. US, oracle).
+Names: CODE-provider-reality and CODE-provider-xhttp+tls+cdn; no network lookup here.
 Defaults: /etc/xray-skill/secrets/client-a.json, /etc/xray-skill/secrets/client-b.json;
-          output directory /etc/xray-skill/client
+          output directory is the current working directory
 Writes links.txt (exactly A then B), node-a.json and node-b.json (full clients).
 Only paths/status reach stdout. Never prints links, credentials, QR or raw errors.
 Inputs must be owned by the current user, mode 600, in mode 700 directories.
-Output is mode 700/600, outside this repository; no symlink components allowed.
+Files are mode 600; current directory permissions are preserved (no group/other writes).
+Other output directories must be mode 700. No symlink components allowed.
+Exports inside this repository must be ignored by Git and untracked.
 Optional --xray validates both JSON clients before publication, without starting them.
 URI fields are source-reviewed; GUI import compatibility remains untested.
 EOF
 }
 a=/etc/xray-skill/secrets/client-a.json b=/etc/xray-skill/secrets/client-b.json
-output=/etc/xray-skill/client xray_bin='' json=false
+output=$PWD xray_bin='' json=false country='' provider=''
 while (($#)); do
     case "$1" in
         --help|-h) usage; exit 0 ;;
         --json) json=true; shift ;;
-        --client-a|--client-b|--output-dir|--xray)
+        --client-a|--client-b|--output-dir|--xray|--country|--provider)
             (($# >= 2)) || { printf '[FAIL] missing option value\n' >&2; exit 2; }
             case "$1" in
                 --client-a) a=$2 ;; --client-b) b=$2 ;;
                 --output-dir) output=$2 ;; --xray) xray_bin=$2 ;;
+                --country) country=$2 ;; --provider) provider=$2 ;;
             esac
             shift 2 ;;
         *) printf '[FAIL] unsupported export option; use --help\n' >&2; exit 2 ;;
@@ -52,6 +58,11 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+country=${country^^}
+provider=${provider,,}
+[[ $country =~ ^[A-Z]{2}$ && $provider =~ ^[a-z0-9]+(-[a-z0-9]+)*$ && ${#provider} -le 64 ]]
+name_a=$country-$provider-reality
+name_b=$country-$provider-xhttp+tls+cdn
 for dep in jq stat realpath flock mktemp; do command -v "$dep"; done
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 
@@ -86,9 +97,19 @@ for source in "$a" "$b"; do
     private_dir "$(dirname -- "$source")"
 done
 safe_path "$output"
-[[ $output != "$root" && $output != "$root/"* ]]
+if [[ $output == "$root" || $output == "$root/"* ]]; then
+    for name in links.txt node-a.json node-b.json .export.lock .export.probe; do
+        git -C "$root" check-ignore -q -- "$output/$name"
+    done
+fi
 mkdir -p -- "$output"
-private_dir "$output"
+if [[ $output == "$PWD" ]]; then
+    [[ -d $output && $(stat -c %u -- "$output") == "$EUID" ]]
+    output_mode=$(stat -c %a -- "$output")
+    (( (8#$output_mode & 0022) == 0 ))
+else
+    private_dir "$output"
+fi
 for name in links.txt node-a.json node-b.json .export.lock; do
     if [[ -e $output/$name || -L $output/$name ]]; then private_file "$output/$name"; fi
     [[ $a != "$output/$name" && $b != "$output/$name" ]]
@@ -103,11 +124,15 @@ jq -e -n -L "$root/scripts/lib" --slurpfile a "$a" --slurpfile b "$b" '
         {a: ($a[0]|node("a")), b: ($b[0]|node("b"))}
     else error("one JSON document required") end
 ' > "$stage/pair.json"
-jq -er -L "$root/scripts/lib" 'include "links"; uri(.a;"a"), uri(.b;"b")' \
+jq -er --arg name_a "$name_a" --arg name_b "$name_b" -L "$root/scripts/lib" \
+    'include "links"; uri(.a;"a";$name_a), uri(.b;"b";$name_b)' \
     "$stage/pair.json" > "$stage/links.txt"
 [[ $(wc -l < "$stage/links.txt") == 2 ]]
 for node in a b; do
-    jq -e --arg node "$node" -L "$root/scripts/lib" 'include "links"; .[$node] | full_client' \
+    node_name=$name_a
+    if [[ $node == b ]]; then node_name=$name_b; fi
+    jq -e --arg node "$node" --arg name "$node_name" -L "$root/scripts/lib" \
+        'include "links"; .[$node] | .tag=$name | full_client' \
         "$stage/pair.json" > "$stage/node-$node.json"
     if [[ -n $xray_bin ]]; then
         [[ $xray_bin = /* && -x $xray_bin ]]
